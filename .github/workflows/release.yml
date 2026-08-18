@@ -245,15 +245,8 @@ jobs:
             mkdir -p "$DEB_DIR/usr/share/applications"
             mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
             
-            cat <<EOF > "$DEB_DIR/DEBIAN/control"
-Package: cently
-Version: ${VERSION_NUM}
-Section: utils
-Priority: optional
-Architecture: amd64
-Maintainer: Cently Authors <https://github.com/e69d8e/Cently>
-Description: 简约、轻量、纯粹的现代化个人记账应用 (Flutter)
-EOF
+            # Write control file
+            printf "Package: cently\nVersion: %s\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Cently Authors <https://github.com/e69d8e/Cently>\nDescription: 简约、轻量、纯粹的现代化个人记账应用 (Flutter)\n" "${VERSION_NUM}" > "$DEB_DIR/DEBIAN/control"
             
             cp -r "$BUNDLE_DIR"/* "$DEB_DIR/usr/lib/cently/"
             ln -s "/usr/lib/cently/cently" "$DEB_DIR/usr/bin/cently"
@@ -261,17 +254,9 @@ EOF
               cp "assets/icon/app_icon.png" "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/cently.png"
             fi
             
-            cat <<EOF > "$DEB_DIR/usr/share/applications/cently.desktop"
-[Desktop Entry]
-Name=分厘
-GenericName=Cently
-Comment=简约、轻量、纯粹的现代化个人记账应用
-Exec=cently
-Icon=cently
-Terminal=false
-Type=Application
-Categories=Utility;Finance;
-EOF
+            # Write desktop file
+            printf "[Desktop Entry]\nName=分厘\nGenericName=Cently\nComment=简约、轻量、纯粹的现代化个人记账应用\nExec=cently\nIcon=cently\nTerminal=false\nType=Application\nCategories=Utility;Finance;\n" > "$DEB_DIR/usr/share/applications/cently.desktop"
+            
             chmod -R 755 "$DEB_DIR"
             dpkg-deb --build "$DEB_DIR" "artifacts/Cently-Linux-amd64-${VERSION}.deb"
           else
