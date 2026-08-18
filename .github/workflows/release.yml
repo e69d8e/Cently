@@ -110,23 +110,30 @@ jobs:
           $VERSION_NUM = $VERSION.TrimStart('v')
           New-Item -ItemType Directory -Force -Path "artifacts"
           
-          # Locate build release folder
-          $releaseDir = Get-ChildItem -Path "build\windows" -Recurse -Directory -Filter "Release" | Select-Object -First 1
-          if (-not $releaseDir) {
-              Write-Error "Windows Release directory not found."
+          # 1. Locate the executable directory
+          $exe = Get-ChildItem -Path "build\windows" -Recurse -Filter "cently.exe" | Select-Object -First 1
+          if (-not $exe) {
+              $exe = Get-ChildItem -Path "build\windows" -Recurse -Filter "*.exe" | Where-Object { $_.FullName -notmatch "\.dir" -and $_.FullName -notmatch "CMakeFiles" } | Select-Object -First 1
+          }
+          if (-not $exe) {
+              Write-Error "Windows executable not found in build directory."
               exit 1
           }
           
-          # 1. Package Portable ZIP
-          Compress-Archive -Path "$($releaseDir.FullName)\*" -DestinationPath "artifacts\Cently-Windows-x64-$VERSION.zip"
+          $releasePath = $exe.Directory.FullName
+          Write-Host "Found release directory: $releasePath"
+          $artifactsPath = (Resolve-Path "artifacts").Path
           
-          # 2. Compile Inno Setup EXE Installer
+          # 2. Package Portable ZIP
+          Compress-Archive -Path "$releasePath\*" -DestinationPath "artifacts\Cently-Windows-x64-$VERSION.zip"
+          
+          # 3. Compile Inno Setup EXE Installer
           $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $isccPath)) {
               choco install innosetup -y
           }
           if (Test-Path $isccPath) {
-              & $isccPath /DMyAppVersion="$VERSION_NUM" /DSourceDir="$($releaseDir.FullName)" windows\packaging\installer.iss
+              & $isccPath /DMyAppVersion="$VERSION_NUM" /DSourceDir="$releasePath" /DOutputDir="$artifactsPath" windows\packaging\installer.iss
           } else {
               Write-Warning "Inno Setup compiler not found, skipping EXE installer creation."
           }

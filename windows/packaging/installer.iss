@@ -12,6 +12,10 @@
   #define SourceDir "..\..\build\windows\x64\runner\Release"
 #endif
 
+#ifndef OutputDir
+  #define OutputDir "..\..\artifacts"
+#endif
+
 [Setup]
 AppId={{D37E88DF-3FB4-4A2D-BE45-B86B2F5C5B99}
 AppName={#MyAppName}
@@ -23,7 +27,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppEnglishName}
 DisableProgramGroupPage=yes
 OutputBaseFilename=Cently-Windows-x64-{#MyAppVersion}-Setup
-OutputDir=..\..\artifacts
+OutputDir={#OutputDir}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
