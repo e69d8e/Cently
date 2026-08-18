@@ -7,7 +7,6 @@ import 'package:cently/models/category.dart';
 import 'package:cently/models/transaction_record.dart';
 import 'package:cently/providers/category_provider.dart';
 import 'package:cently/providers/transaction_provider.dart';
-import 'package:cently/screens/home/home_screen.dart';
 import 'package:cently/screens/record/add_record_screen.dart';
 import 'package:cently/theme/app_colors.dart';
 import 'package:cently/utils/currency_format.dart';
