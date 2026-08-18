@@ -15,8 +15,11 @@ permissions:
   contents: write
 
 jobs:
+  # ==========================================
+  # 1. Android: 32位 / 64位 / 通用 APK / AAB
+  # ==========================================
   build-android:
-    name: Build Android APK
+    name: Build Android (32/64-bit APK & AAB)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -37,22 +40,179 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Android Release APK
+      - name: Build Split per ABI APKs (32-bit & 64-bit)
+        run: flutter build apk --split-per-abi --release
+
+      - name: Build Universal APK
         run: flutter build apk --release
 
-      - name: Prepare Android artifact
-        id: prepare
+      - name: Build Android App Bundle (AAB)
+        run: flutter build appbundle --release
+
+      - name: Organize Android artifacts
         run: |
           VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
           mkdir -p artifacts
-          cp build/app/outputs/flutter-apk/app-release.apk "artifacts/Cently-Android-${VERSION}.apk"
+          
+          # Copy Split APKs
+          if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" "artifacts/Cently-Android-armeabi-v7a-${VERSION}.apk"
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" "artifacts/Cently-Android-arm64-v8a-${VERSION}.apk"
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-x86_64-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-x86_64-release.apk" "artifacts/Cently-Android-x86_64-${VERSION}.apk"
+          fi
+          
+          # Copy Universal APK
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-release.apk" "artifacts/Cently-Android-Universal-${VERSION}.apk"
+          fi
+          
+          # Copy AAB
+          if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+            cp "build/app/outputs/bundle/release/app-release.aab" "artifacts/Cently-Android-${VERSION}.aab"
+          fi
 
-      - name: Upload Android artifact
+      - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: artifacts/Cently-Android-*.apk
+          name: android-artifacts
+          path: artifacts/*
 
+  # ==========================================
+  # 2. Windows: x64 Desktop Application
+  # ==========================================
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.tag_name || github.ref_name }}"
+          New-Item -ItemType Directory -Force -Path "artifacts"
+          $releaseDir = Get-ChildItem -Path "build\windows" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+          if ($releaseDir) {
+              Compress-Archive -Path "$($releaseDir.FullName)\*" -DestinationPath "artifacts\Cently-Windows-x64-$VERSION.zip"
+          } else {
+              Write-Error "Windows Release directory not found."
+          }
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifact
+          path: artifacts/Cently-Windows-*.zip
+
+  # ==========================================
+  # 3. macOS: Desktop Application
+  # ==========================================
+  build-macos:
+    name: Build macOS Application
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS Release
+        run: flutter build macos --release
+
+      - name: Package macOS artifact
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts
+          APP_PATH=$(find build/macos/Build/Products/Release -name "*.app" -maxdepth 1 | head -n 1)
+          if [ -n "$APP_PATH" ]; then
+            APP_DIR=$(dirname "$APP_PATH")
+            APP_NAME=$(basename "$APP_PATH")
+            cd "$APP_DIR"
+            zip -r -y "../../../../../artifacts/Cently-macOS-${VERSION}.zip" "$APP_NAME"
+            cd -
+          else
+            echo "Error: macOS .app bundle not found."
+            exit 1
+          fi
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifact
+          path: artifacts/Cently-macOS-*.zip
+
+  # ==========================================
+  # 4. Linux: x64 Desktop Application
+  # ==========================================
+  build-linux:
+    name: Build Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux Release
+        run: flutter build linux --release
+
+      - name: Package Linux artifact
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts
+          BUNDLE_DIR=$(find build/linux -type d -name "bundle" | head -n 1)
+          if [ -n "$BUNDLE_DIR" ]; then
+            tar -czvf "artifacts/Cently-Linux-x64-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
+          else
+            echo "Error: Linux bundle directory not found."
+            exit 1
+          fi
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifact
+          path: artifacts/Cently-Linux-*.tar.gz
+
+  # ==========================================
+  # 5. Web: Web Application Bundle
+  # ==========================================
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
@@ -73,7 +233,6 @@ jobs:
         run: flutter build web --release
 
       - name: Package Web artifact
-        id: package
         run: |
           VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
           mkdir -p artifacts
@@ -84,12 +243,15 @@ jobs:
       - name: Upload Web artifact
         uses: actions/upload-artifact@v4
         with:
-          name: web-bundle
+          name: web-artifact
           path: artifacts/Cently-Web-*.zip
 
+  # ==========================================
+  # 6. Publish: Aggregate & Publish to Releases
+  # ==========================================
   publish-release:
     name: Publish GitHub Release
-    needs: [build-android, build-web]
+    needs: [build-android, build-windows, build-macos, build-linux, build-web]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -101,7 +263,7 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
-      - name: Display downloaded files
+      - name: List all release files
         run: ls -la release-artifacts
 
       - name: Publish Release to GitHub

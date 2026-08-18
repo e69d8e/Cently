@@ -123,43 +123,60 @@ flutter test
 
 ## 📦 打包构建
 
-### Android APK 打包
+### 1. Android 端打包 (全架构与分包)
 ```bash
-# 构建 Release APK (产物位于 build/app/outputs/flutter-apk/app-release.apk)
+# 构建全架构通用 APK (Universal APK)
 flutter build apk --release
 
-# 构建 App Bundle (.aab)
+# 构建分架构独立 APK (生成 32位 armeabi-v7a、64位 arm64-v8a、64位 x86_64)
+flutter build apk --split-per-abi --release
+
+# 构建 Google Play App Bundle (.aab)
 flutter build appbundle --release
 ```
 
-### Web 端打包
+### 2. 桌面端打包 (macOS / Windows / Linux)
+```bash
+# macOS 应用包 (.app)
+flutter build macos --release
+
+# Windows x64 应用包
+flutter build windows --release
+
+# Linux x64 应用包
+flutter build linux --release
+```
+
+### 3. Web 端打包
 ```bash
 flutter build web --release
 ```
 
-### 桌面端打包 (macOS / Windows)
-```bash
-# macOS
-flutter build macos --release
-
-# Windows
-flutter build windows --release
-```
-
 ---
 
-## 🤖 CI/CD 自动化发布
+## 🤖 CI/CD 自动化全平台发布
 
-项目内置了 GitHub Actions 自动化工作流：
+项目配置了完整的 GitHub Actions 自动化流水线（支持矩阵式多平台与多架构产物构建）：
 
 - **CI 流水线 (`.github/workflows/ci.yml`)**：在向 `main` 分支提交代码或发起 PR 时，自动执行代码静态分析 (`flutter analyze`) 与单元测试 (`flutter test`)。
 - **Release 流水线 (`.github/workflows/release.yml`)**：
-  - 当推送版本标签（例如 `git tag v1.0.0 && git push origin v1.0.0`）或在 GitHub Actions 页面手动点击触发时；
-  - 自动编译 **Android Release APK** 与 **Web 静态包**；
-  - 自动创建 **GitHub Release** 并附带构建产物下载链接与更新日志。
+  - **触发方式**：推送版本标签（例如 `git tag v1.0.1 && git push origin v1.0.1`）或在 GitHub Actions 页面手动触发；
+  - **全平台构建产物矩阵**：
+    - 🤖 **Android**：
+      - `Cently-Android-Universal-v*.apk`（全架构通用版）
+      - `Cently-Android-arm64-v8a-v*.apk`（主流 64 位 ARM 手机，体积更小）
+      - `Cently-Android-armeabi-v7a-v*.apk`（老旧 32 位 ARM 手机）
+      - `Cently-Android-x86_64-v*.apk`（模拟器 / x86_64 架构设备）
+      - `Cently-Android-v*.aab`（Google Play 格式包）
+    - 🪟 **Windows**：`Cently-Windows-x64-v*.zip`（Windows x64 绿色独立免安装包）
+    - 🍎 **macOS**：`Cently-macOS-v*.zip`（macOS 原生桌面应用包）
+    - 🐧 **Linux**：`Cently-Linux-x64-v*.tar.gz`（Linux x64 运行包）
+    - 🌐 **Web**：`Cently-Web-v*.zip`（Web 静态部署资源包）
+  - **自动发布**：所有产物自动打包并聚合发布到 [GitHub Releases](https://github.com/e69d8e/Cently/releases)，同时自动生成 Release Notes。
 
 ---
 
 ## 📄 开源协议
 
 本项目采用 [MIT License](LICENSE) 许可证开源，欢迎自由使用、学习与修改。
+
