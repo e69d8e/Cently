@@ -82,10 +82,10 @@ jobs:
           path: artifacts/*
 
   # ==========================================
-  # 2. Windows: x64 Desktop Application
+  # 2. Windows: .exe 安装包 & 绿色 Zip 包
   # ==========================================
   build-windows:
-    name: Build Windows x64
+    name: Build Windows (EXE Setup & Zip)
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -103,33 +103,52 @@ jobs:
       - name: Build Windows Release
         run: flutter build windows --release
 
-      - name: Package Windows artifact
+      - name: Package Windows Artifacts (EXE Setup & ZIP)
         shell: pwsh
         run: |
           $VERSION = "${{ github.event.inputs.tag_name || github.ref_name }}"
+          $VERSION_NUM = $VERSION.TrimStart('v')
           New-Item -ItemType Directory -Force -Path "artifacts"
+          
+          # Locate build release folder
           $releaseDir = Get-ChildItem -Path "build\windows" -Recurse -Directory -Filter "Release" | Select-Object -First 1
-          if ($releaseDir) {
-              Compress-Archive -Path "$($releaseDir.FullName)\*" -DestinationPath "artifacts\Cently-Windows-x64-$VERSION.zip"
-          } else {
+          if (-not $releaseDir) {
               Write-Error "Windows Release directory not found."
+              exit 1
+          }
+          
+          # 1. Package Portable ZIP
+          Compress-Archive -Path "$($releaseDir.FullName)\*" -DestinationPath "artifacts\Cently-Windows-x64-$VERSION.zip"
+          
+          # 2. Compile Inno Setup EXE Installer
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+              choco install innosetup -y
+          }
+          if (Test-Path $isccPath) {
+              & $isccPath /DMyAppVersion="$VERSION_NUM" /DSourceDir="$($releaseDir.FullName)" windows\packaging\installer.iss
+          } else {
+              Write-Warning "Inno Setup compiler not found, skipping EXE installer creation."
           }
 
-      - name: Upload Windows artifact
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-artifact
-          path: artifacts/Cently-Windows-*.zip
+          name: windows-artifacts
+          path: artifacts/Cently-Windows-*
 
   # ==========================================
-  # 3. macOS: Desktop Application
+  # 3. macOS: .dmg 镜像包 & .zip 包
   # ==========================================
   build-macos:
-    name: Build macOS Application
+    name: Build macOS (DMG & ZIP)
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install create-dmg
+        run: brew install create-dmg || true
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -143,7 +162,7 @@ jobs:
       - name: Build macOS Release
         run: flutter build macos --release
 
-      - name: Package macOS artifact
+      - name: Package macOS Artifacts (DMG & ZIP)
         run: |
           VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
           mkdir -p artifacts
@@ -151,25 +170,40 @@ jobs:
           if [ -n "$APP_PATH" ]; then
             APP_DIR=$(dirname "$APP_PATH")
             APP_NAME=$(basename "$APP_PATH")
+            
+            # 1. Package ZIP
             cd "$APP_DIR"
             zip -r -y "../../../../../artifacts/Cently-macOS-${VERSION}.zip" "$APP_NAME"
             cd -
+            
+            # 2. Package DMG
+            create-dmg \
+              --volname "Cently" \
+              --window-pos 200 120 \
+              --window-size 600 400 \
+              --icon-size 100 \
+              --icon "$APP_NAME" 150 190 \
+              --hide-extension "$APP_NAME" \
+              --app-drop-link 450 185 \
+              "artifacts/Cently-macOS-${VERSION}.dmg" \
+              "$APP_PATH" || \
+            hdiutil create -volname "Cently" -srcfolder "$APP_PATH" -ov -format UDZO "artifacts/Cently-macOS-${VERSION}.dmg"
           else
             echo "Error: macOS .app bundle not found."
             exit 1
           fi
 
-      - name: Upload macOS artifact
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-artifact
-          path: artifacts/Cently-macOS-*.zip
+          name: macos-artifacts
+          path: artifacts/Cently-macOS-*
 
   # ==========================================
-  # 4. Linux: x64 Desktop Application
+  # 4. Linux: .deb 安装包 & .tar.gz 运行包
   # ==========================================
   build-linux:
-    name: Build Linux x64
+    name: Build Linux (DEB & Tar.gz)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -192,29 +226,117 @@ jobs:
       - name: Build Linux Release
         run: flutter build linux --release
 
-      - name: Package Linux artifact
+      - name: Package Linux Artifacts (DEB & Tar.gz)
         run: |
           VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          VERSION_NUM="${VERSION#v}"
           mkdir -p artifacts
           BUNDLE_DIR=$(find build/linux -type d -name "bundle" | head -n 1)
+          
           if [ -n "$BUNDLE_DIR" ]; then
+            # 1. Package .tar.gz
             tar -czvf "artifacts/Cently-Linux-x64-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
+            
+            # 2. Package .deb
+            DEB_DIR="deb_package"
+            mkdir -p "$DEB_DIR/DEBIAN"
+            mkdir -p "$DEB_DIR/usr/lib/cently"
+            mkdir -p "$DEB_DIR/usr/bin"
+            mkdir -p "$DEB_DIR/usr/share/applications"
+            mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+            
+            cat <<EOF > "$DEB_DIR/DEBIAN/control"
+Package: cently
+Version: ${VERSION_NUM}
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Cently Authors <https://github.com/e69d8e/Cently>
+Description: 简约、轻量、纯粹的现代化个人记账应用 (Flutter)
+EOF
+            
+            cp -r "$BUNDLE_DIR"/* "$DEB_DIR/usr/lib/cently/"
+            ln -s "/usr/lib/cently/cently" "$DEB_DIR/usr/bin/cently"
+            if [ -f "assets/icon/app_icon.png" ]; then
+              cp "assets/icon/app_icon.png" "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/cently.png"
+            fi
+            
+            cat <<EOF > "$DEB_DIR/usr/share/applications/cently.desktop"
+[Desktop Entry]
+Name=分厘
+GenericName=Cently
+Comment=简约、轻量、纯粹的现代化个人记账应用
+Exec=cently
+Icon=cently
+Terminal=false
+Type=Application
+Categories=Utility;Finance;
+EOF
+            chmod -R 755 "$DEB_DIR"
+            dpkg-deb --build "$DEB_DIR" "artifacts/Cently-Linux-amd64-${VERSION}.deb"
           else
             echo "Error: Linux bundle directory not found."
             exit 1
           fi
 
-      - name: Upload Linux artifact
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-artifact
-          path: artifacts/Cently-Linux-*.tar.gz
+          name: linux-artifacts
+          path: artifacts/Cently-Linux-*
 
   # ==========================================
-  # 5. Web: Web Application Bundle
+  # 5. iOS: IPA 安装包
+  # ==========================================
+  build-ios:
+    name: Build iOS (IPA)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS Release Archive
+        run: flutter build ipa --no-codesign --release
+
+      - name: Package iOS IPA
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts Payload
+          
+          APP_SOURCE=$(find build/ios/archive -name "*.app" | head -n 1)
+          if [ -z "$APP_SOURCE" ]; then
+            APP_SOURCE="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+          fi
+          
+          if [ -d "$APP_SOURCE" ]; then
+            cp -r "$APP_SOURCE" Payload/
+            zip -r -y "artifacts/Cently-iOS-unsigned-${VERSION}.ipa" Payload
+            rm -rf Payload
+          else
+            echo "Error: Runner.app not found in xcarchive"
+            exit 1
+          fi
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-artifact
+          path: artifacts/Cently-iOS-*.ipa
+
+  # ==========================================
+  # 6. Web: Web Application Bundle
   # ==========================================
   build-web:
-    name: Build Web
+    name: Build Web (ZIP)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -247,11 +369,11 @@ jobs:
           path: artifacts/Cently-Web-*.zip
 
   # ==========================================
-  # 6. Publish: Aggregate & Publish to Releases
+  # 7. Publish: Aggregate & Publish to Releases
   # ==========================================
   publish-release:
     name: Publish GitHub Release
-    needs: [build-android, build-windows, build-macos, build-linux, build-web]
+    needs: [build-android, build-windows, build-macos, build-linux, build-ios, build-web]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

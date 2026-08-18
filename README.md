@@ -135,19 +135,25 @@ flutter build apk --split-per-abi --release
 flutter build appbundle --release
 ```
 
-### 2. 桌面端打包 (macOS / Windows / Linux)
+### 2. iOS 端打包 (IPA)
 ```bash
-# macOS 应用包 (.app)
+# 构建 iOS 归档并导出 IPA
+flutter build ipa --no-codesign --release
+```
+
+### 3. 桌面端打包 (macOS / Windows / Linux)
+```bash
+# macOS 应用包 (.app / .dmg)
 flutter build macos --release
 
-# Windows x64 应用包
+# Windows x64 应用包 (.exe 安装包 / 绿色包)
 flutter build windows --release
 
-# Linux x64 应用包
+# Linux x64 应用包 (.deb / .tar.gz)
 flutter build linux --release
 ```
 
-### 3. Web 端打包
+### 4. Web 端打包
 ```bash
 flutter build web --release
 ```
@@ -156,7 +162,7 @@ flutter build web --release
 
 ## 🤖 CI/CD 自动化全平台发布
 
-项目配置了完整的 GitHub Actions 自动化流水线（支持矩阵式多平台与多架构产物构建）：
+项目配置了完整的 GitHub Actions 自动化流水线（支持矩阵式多平台与原生安装包构建）：
 
 - **CI 流水线 (`.github/workflows/ci.yml`)**：在向 `main` 分支提交代码或发起 PR 时，自动执行代码静态分析 (`flutter analyze`) 与单元测试 (`flutter test`)。
 - **Release 流水线 (`.github/workflows/release.yml`)**：
@@ -168,10 +174,19 @@ flutter build web --release
       - `Cently-Android-armeabi-v7a-v*.apk`（老旧 32 位 ARM 手机）
       - `Cently-Android-x86_64-v*.apk`（模拟器 / x86_64 架构设备）
       - `Cently-Android-v*.aab`（Google Play 格式包）
-    - 🪟 **Windows**：`Cently-Windows-x64-v*.zip`（Windows x64 绿色独立免安装包）
-    - 🍎 **macOS**：`Cently-macOS-v*.zip`（macOS 原生桌面应用包）
-    - 🐧 **Linux**：`Cently-Linux-x64-v*.tar.gz`（Linux x64 运行包）
-    - 🌐 **Web**：`Cently-Web-v*.zip`（Web 静态部署资源包）
+    - 🍏 **iOS**：
+      - `Cently-iOS-unsigned-v*.ipa`（iOS 独立应用安装包，支持 TrollStore / AltStore / Sideloadly 等自签名分发）
+    - 🪟 **Windows**：
+      - `Cently-Windows-x64-v*-Setup.exe`（Windows 安装向导程序）
+      - `Cently-Windows-x64-v*.zip`（Windows x64 绿色免安装包）
+    - 🍎 **macOS**：
+      - `Cently-macOS-v*.dmg`（macOS 拖拽安装镜像）
+      - `Cently-macOS-v*.zip`（macOS 原生 `.app` 应用压缩包）
+    - 🐧 **Linux**：
+      - `Cently-Linux-amd64-v*.deb`（Debian / Ubuntu 安装包）
+      - `Cently-Linux-x64-v*.tar.gz`（Linux x64 独立运行包）
+    - 🌐 **Web**：
+      - `Cently-Web-v*.zip`（Web 静态部署资源包）
   - **自动发布**：所有产物自动打包并聚合发布到 [GitHub Releases](https://github.com/e69d8e/Cently/releases)，同时自动生成 Release Notes。
 
 ---
