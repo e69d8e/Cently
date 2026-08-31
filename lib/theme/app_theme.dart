@@ -57,6 +57,13 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColors.primary,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
+        actionTextColor: AppColors.income,
+      ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: AppColors.textPrimary,
@@ -152,6 +159,13 @@ class AppTheme {
         color: AppColors.borderDark,
         thickness: 1,
         space: 1,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColors.surfaceMutedDark,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
+        actionTextColor: AppColors.income,
       ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(

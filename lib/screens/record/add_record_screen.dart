@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/default_data.dart';
 import '../../models/category.dart';
 import '../../models/preset_item.dart';
 import '../../models/transaction_record.dart';
@@ -18,15 +19,31 @@ import '../category_manage/category_detail_screen.dart';
 
 class AddRecordScreen extends StatefulWidget {
   final TransactionRecord? initialRecord; // If editing
+  final Category? initialCategory; // If pre-filling category (e.g. repeat record)
+  final String? initialName; // If pre-filling item name
 
-  const AddRecordScreen({super.key, this.initialRecord});
+  const AddRecordScreen({
+    super.key,
+    this.initialRecord,
+    this.initialCategory,
+    this.initialName,
+  });
 
-  static Future<bool?> show(BuildContext context, {TransactionRecord? initialRecord}) {
+  static Future<bool?> show(
+    BuildContext context, {
+    TransactionRecord? initialRecord,
+    Category? initialCategory,
+    String? initialName,
+  }) {
     return Navigator.push<bool>(
       context,
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => AddRecordScreen(initialRecord: initialRecord),
+        builder: (context) => AddRecordScreen(
+          initialRecord: initialRecord,
+          initialCategory: initialCategory,
+          initialName: initialName,
+        ),
       ),
     );
   }
@@ -40,6 +57,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   Category? _selectedCategory;
   late TextEditingController _nameController;
   late TextEditingController _remarkController;
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _remarkFocusNode = FocusNode();
   late DateTime _selectedDateTime;
   bool _isCustomDateTime = false;
   String _amountExpression = '0';
@@ -59,20 +78,30 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       _isCustomDateTime = true;
       _amountExpression = CurrencyFormat.formatRaw(initial.amount);
       _isInitialAmountState = true;
+      _isCustomNameActive = true;
     } else {
-      _type = CategoryType.expense;
-      _nameController = TextEditingController();
+      _type = widget.initialCategory?.type ?? CategoryType.expense;
+      _selectedCategory = widget.initialCategory;
+      _nameController = TextEditingController(text: widget.initialName ?? '');
       _remarkController = TextEditingController();
       _selectedDateTime = DateTime.now();
       _isCustomDateTime = false;
       _amountExpression = '0';
       _isInitialAmountState = false;
+      _isCustomNameActive = (widget.initialName != null && widget.initialName!.isNotEmpty);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final catProvider = Provider.of<CategoryProvider>(context, listen: false);
       if (initial != null) {
         final found = catProvider.getCategoryById(initial.categoryId);
+        if (found != null) {
+          setState(() {
+            _selectedCategory = found;
+          });
+        }
+      } else if (widget.initialCategory != null) {
+        final found = catProvider.getCategoryById(widget.initialCategory!.id);
         if (found != null) {
           setState(() {
             _selectedCategory = found;
@@ -92,6 +121,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
   @override
   void dispose() {
+    _nameFocusNode.dispose();
+    _remarkFocusNode.dispose();
     _keyboardFocusNode.dispose();
     _nameController.dispose();
     _remarkController.dispose();
@@ -142,87 +173,105 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
   void _handleKeyPress(String key) {
     HapticFeedback.lightImpact();
-
-    String current = _amountExpression.replaceAll(',', '');
-
-    if (key == '⌫') {
-      if (current.isNotEmpty) {
-        current = current.substring(0, current.length - 1);
-        if (current.isEmpty) {
-          current = '0';
-        }
-      } else {
-        current = '0';
-      }
-      setState(() {
-        _amountExpression = current;
-        _isInitialAmountState = false;
-      });
-      return;
-    }
-
-    if (key == '+' || key == '-') {
-      if (current.endsWith('+') || current.endsWith('-')) {
-        current = current.substring(0, current.length - 1) + key;
-      } else {
-        if (_hasPendingCalculation(current)) {
-          final result = CurrencyFormat.parseExpression(current);
-          current = CurrencyFormat.formatRaw(result) + key;
-        } else {
-          current += key;
-        }
-      }
-      setState(() {
-        _amountExpression = current;
-        _isInitialAmountState = false;
-      });
-      return;
-    }
-
-    if (key == '.') {
-      final segments = current.split(RegExp(r'[+\-]'));
-      final lastSegment = segments.isNotEmpty ? segments.last : '';
-      if (!lastSegment.contains('.')) {
-        if (lastSegment.isEmpty) {
-          current += '0.';
-        } else {
-          current += '.';
-        }
-        setState(() {
-          _amountExpression = current;
-          _isInitialAmountState = false;
-        });
-      }
-      return;
-    }
-
-    // Numbers: 0..9
-    if (current == '0' || _isInitialAmountState) {
-      current = key;
-    } else {
-      final segments = current.split(RegExp(r'[+\-]'));
-      final lastSegment = segments.isNotEmpty ? segments.last : '';
-      if (lastSegment.contains('.')) {
-        final decimals = lastSegment.split('.').last;
-        if (decimals.length >= 2) {
-          return;
-        }
-      }
-      if (current.length < 16) {
-        current += key;
-      }
-    }
     setState(() {
-      _amountExpression = current;
+      _amountExpression = CurrencyFormat.processKeyInput(
+        currentExpression: _amountExpression,
+        key: key,
+        isInitialState: _isInitialAmountState,
+      );
       _isInitialAmountState = false;
     });
   }
 
-  bool _hasPendingCalculation(String text) {
-    final clean = text.trim();
-    if (clean.length < 2) return false;
-    final body = clean.startsWith('-') ? clean.substring(1) : clean;
-    return body.contains('+') || body.contains('-');
+  bool _isShowingExitDialog = false;
+  bool _isForceClosing = false;
+
+  bool _hasUnsavedChanges() {
+    if (_isForceClosing) return false;
+
+    if (widget.initialRecord != null) {
+      final initial = widget.initialRecord!;
+      final currentAmount = _parseAmount();
+      final currentName = _nameController.text.trim().isEmpty
+          ? (_selectedCategory?.name ?? '')
+          : _nameController.text.trim();
+      final currentRemark = _remarkController.text.trim().isEmpty
+          ? null
+          : _remarkController.text.trim();
+
+      if (currentAmount != initial.amount) return true;
+      if (_type != initial.type) return true;
+      if (_selectedCategory != null && _selectedCategory!.id != initial.categoryId) return true;
+      if (currentName != initial.name) return true;
+      if (currentRemark != initial.remark) return true;
+      if (_selectedDateTime != initial.dateTime) return true;
+      return false;
+    } else {
+      final currentAmount = _parseAmount();
+      if (currentAmount > 0 || _amountExpression != '0') {
+        return true;
+      }
+      if (_remarkController.text.trim().isNotEmpty) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  Future<void> _handlePopScope() async {
+    if (_isShowingExitDialog || _isForceClosing) return;
+    _isShowingExitDialog = true;
+
+    try {
+      final amount = _parseAmount();
+      final isEditing = widget.initialRecord != null;
+
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(isEditing ? '保存修改？' : '保存本次记录？'),
+          content: Text(
+            isEditing
+                ? '当前修改尚未保存，是否保存后再退出？'
+                : '您已输入金额 ¥${CurrencyFormat.formatRaw(amount)}，是否需要保存？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'discard'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.expense,
+              ),
+              child: const Text('不保存'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (action == 'save') {
+        final success = await _saveRecord();
+        if (success && mounted) {
+          _isForceClosing = true;
+          setState(() {});
+          Navigator.of(context).pop(true);
+        }
+      } else if (action == 'discard') {
+        _isForceClosing = true;
+        setState(() {});
+        Navigator.of(context).pop();
+      }
+    } finally {
+      _isShowingExitDialog = false;
+    }
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -233,8 +282,18 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     final logicalKey = event.logicalKey;
 
     if (logicalKey == LogicalKeyboardKey.escape) {
-      Navigator.pop(context);
+      if (_nameFocusNode.hasFocus || _remarkFocusNode.hasFocus) {
+        FocusScope.of(context).unfocus();
+        _keyboardFocusNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+      Navigator.maybePop(context);
       return KeyEventResult.handled;
+    }
+
+    // If focus is inside a TextField (name or remark), do NOT intercept keypad events
+    if (!_keyboardFocusNode.hasPrimaryFocus || _nameFocusNode.hasFocus || _remarkFocusNode.hasFocus) {
+      return KeyEventResult.ignored;
     }
 
     if (logicalKey == LogicalKeyboardKey.enter || logicalKey == LogicalKeyboardKey.numpadEnter) {
@@ -337,6 +396,24 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     }
 
     if (_selectedCategory == null) {
+      final catProvider = Provider.of<CategoryProvider>(context, listen: false);
+      final currentCategories = _type == CategoryType.expense
+          ? catProvider.expenseCategories
+          : catProvider.incomeCategories;
+      if (currentCategories.isNotEmpty) {
+        _selectedCategory = currentCategories.first;
+      } else {
+        final defaultCats = DefaultData.getDefaultCategories();
+        final list = _type == CategoryType.expense
+            ? defaultCats.where((c) => c.type == CategoryType.expense).toList()
+            : defaultCats.where((c) => c.type == CategoryType.income).toList();
+        if (list.isNotEmpty) {
+          _selectedCategory = list.first;
+        }
+      }
+    }
+
+    if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('请选择分类类型'),
@@ -355,6 +432,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         ? _selectedDateTime
         : DateTime.now();
 
+    final remarkText = _remarkController.text.trim();
+    final remarkValue = remarkText.isNotEmpty ? remarkText : null;
+
     if (widget.initialRecord != null) {
       final updated = widget.initialRecord!.copyWith(
         amount: amount,
@@ -363,9 +443,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         categoryName: _selectedCategory!.name,
         name: name,
         dateTime: recordTime,
-        remark: _remarkController.text.trim().isNotEmpty
-            ? _remarkController.text.trim()
-            : null,
+        remark: remarkValue,
+        clearRemark: remarkValue == null,
       );
       await txProvider.updateTransaction(updated);
     } else {
@@ -376,9 +455,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         categoryName: _selectedCategory!.name,
         name: name,
         dateTime: recordTime,
-        remark: _remarkController.text.trim().isNotEmpty
-            ? _remarkController.text.trim()
-            : null,
+        remark: remarkValue,
       );
     }
     return true;
@@ -387,6 +464,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   void _onDoneSave() async {
     final success = await _saveRecord();
     if (success && mounted) {
+      _isForceClosing = true;
+      setState(() {});
       Navigator.pop(context, true);
     }
   }
@@ -444,77 +523,116 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       }
     }
 
-    final currentPresets = _selectedCategory != null
+    final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+    final rawPresets = _selectedCategory != null
         ? catProvider.getPresetsForCategory(_selectedCategory!.id)
         : <PresetItem>[];
+
+    // Smart sort: sort presets by usage frequency in this category
+    final currentPresets = List<PresetItem>.from(rawPresets);
+    if (_selectedCategory != null && currentPresets.isNotEmpty) {
+      final frequencyMap = <String, int>{};
+      for (final r in txProvider.monthRecords) {
+        if (r.categoryId == _selectedCategory!.id) {
+          frequencyMap[r.name] = (frequencyMap[r.name] ?? 0) + 1;
+        }
+      }
+      currentPresets.sort((a, b) {
+        final countA = frequencyMap[a.name] ?? 0;
+        final countB = frequencyMap[b.name] ?? 0;
+        if (countA != countB) {
+          return countB.compareTo(countA); // Higher frequency first
+        }
+        return a.sortOrder.compareTo(b.sortOrder);
+      });
+    }
 
     final accentColor = _type == CategoryType.expense
         ? AppColors.expense
         : AppColors.income;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: _buildTypeSegmentedToggle(),
-        actions: [
-          IconButton(
-            tooltip: '管理分类与名称',
-            icon: const Icon(Icons.tune_rounded, size: 20),
-            onPressed: () {
-              if (_selectedCategory != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CategoryDetailScreen(
-                      category: _selectedCategory!,
-                    ),
-                  ),
-                );
-              }
-            },
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
+    return PopScope(
+      canPop: !_hasUnsavedChanges(),
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handlePopScope();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.maybePop(context),
           ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Focus(
-            focusNode: _keyboardFocusNode,
-            autofocus: true,
-            onKeyEvent: _handleKeyEvent,
-            child: Column(
-              children: [
-                // Amount & Info Banner
-                _buildAmountDisplay(accentColor, isDark),
+          title: _buildTypeSegmentedToggle(),
+          actions: [
+            IconButton(
+              tooltip: '管理分类与名称',
+              icon: const Icon(Icons.tune_rounded, size: 20),
+              onPressed: () {
+                if (_selectedCategory != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryDetailScreen(
+                        category: _selectedCategory!,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            if (_nameFocusNode.hasFocus || _remarkFocusNode.hasFocus) {
+              FocusScope.of(context).unfocus();
+              _keyboardFocusNode.requestFocus();
+            }
+          },
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Focus(
+                focusNode: _keyboardFocusNode,
+                autofocus: true,
+                onKeyEvent: _handleKeyEvent,
+                child: Column(
+                  children: [
+                    // Amount & Info Banner
+                    _buildAmountDisplay(accentColor, isDark),
 
-                // Category Selector (Horizontal Scroll / Grid)
-                _buildCategoryList(currentCategories, isDark),
+                    // Category Selector (Horizontal Scroll / Grid)
+                    _buildCategoryList(currentCategories, isDark),
 
-                // Preset Names and Custom Input Area
-                Expanded(
-                  child: _buildNameAndRemarkSection(currentPresets, isDark),
+                    // Preset Names and Custom Input Area
+                    Expanded(
+                      child: _buildNameAndRemarkSection(currentPresets, isDark),
+                    ),
+
+                    // Integrated Custom Calculator Keyboard
+                    if (!isKeyboardOpen)
+                      NumericKeyboard(
+                        amountText: _amountExpression,
+                        accentColor: accentColor,
+                        isEditing: widget.initialRecord != null,
+                        isInitialState: _isInitialAmountState,
+                        onChanged: (newVal) {
+                          setState(() {
+                            _amountExpression = newVal;
+                            _isInitialAmountState = false;
+                          });
+                        },
+                        onSave: _onDoneSave,
+                        onSaveAndContinue: _onSaveAndContinue,
+                      ),
+                  ],
                 ),
-
-                // Integrated Custom Calculator Keyboard
-                NumericKeyboard(
-                  amountText: _amountExpression,
-                  accentColor: accentColor,
-                  isEditing: widget.initialRecord != null,
-                  isInitialState: _isInitialAmountState,
-                  onChanged: (newVal) {
-                    setState(() {
-                      _amountExpression = newVal;
-                      _isInitialAmountState = false;
-                    });
-                  },
-                  onSave: _onDoneSave,
-                  onSaveAndContinue: _onSaveAndContinue,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -577,7 +695,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
   Widget _buildAmountDisplay(Color accentColor, bool isDark) {
     final clean = _amountExpression.replaceAll(',', '').trim();
-    final hasOp = clean.contains('+') || (clean.contains('-') && !clean.startsWith('-'));
+    final hasOp = CurrencyFormat.hasPendingCalculation(clean);
     final calculated = hasOp ? CurrencyFormat.parseExpression(clean) : null;
 
     return Container(
@@ -874,10 +992,15 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           // Custom Name Input Field
           TextField(
             controller: _nameController,
+            focusNode: _nameFocusNode,
+            textInputAction: TextInputAction.next,
             onChanged: (text) {
               setState(() {
                 _isCustomNameActive = true;
               });
+            },
+            onSubmitted: (_) {
+              _remarkFocusNode.requestFocus();
             },
             decoration: InputDecoration(
               isDense: true,
@@ -912,6 +1035,15 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           // Optional Remark Input Field
           TextField(
             controller: _remarkController,
+            focusNode: _remarkFocusNode,
+            textInputAction: TextInputAction.done,
+            onChanged: (text) {
+              setState(() {});
+            },
+            onSubmitted: (_) {
+              FocusScope.of(context).unfocus();
+              _keyboardFocusNode.requestFocus();
+            },
             decoration: InputDecoration(
               isDense: true,
               hintText: '添加备注 (选填)...',
@@ -920,6 +1052,16 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiary,
               ),
               prefixIcon: const Icon(Icons.notes_rounded, size: 18),
+              suffixIcon: _remarkController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () {
+                        setState(() {
+                          _remarkController.clear();
+                        });
+                      },
+                    )
+                  : null,
               filled: true,
               fillColor: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
               border: OutlineInputBorder(

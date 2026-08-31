@@ -25,86 +25,17 @@ class NumericKeyboard extends StatelessWidget {
 
   void _onKeyPress(String key) {
     HapticFeedback.lightImpact();
-
-    String current = amountText.replaceAll(',', '');
-
-    if (key == '⌫') {
-      if (current.isNotEmpty) {
-        current = current.substring(0, current.length - 1);
-        if (current.isEmpty) {
-          current = '0';
-        }
-      } else {
-        current = '0';
-      }
-      onChanged(current);
-      return;
-    }
-
-    if (key == '+' || key == '-') {
-      // If ends with operator, replace operator
-      if (current.endsWith('+') || current.endsWith('-')) {
-        current = current.substring(0, current.length - 1) + key;
-      } else {
-        // If already has an operator inside, calculate intermediate first
-        if (_hasPendingCalculation(current)) {
-          final result = CurrencyFormat.parseExpression(current);
-          current = CurrencyFormat.formatRaw(result) + key;
-        } else {
-          current += key;
-        }
-      }
-      onChanged(current);
-      return;
-    }
-
-    if (key == '.') {
-      // Find last number segment
-      final segments = current.split(RegExp(r'[+\-]'));
-      final lastSegment = segments.isNotEmpty ? segments.last : '';
-      if (!lastSegment.contains('.')) {
-        if (lastSegment.isEmpty) {
-          current += '0.';
-        } else {
-          current += '.';
-        }
-        onChanged(current);
-      }
-      return;
-    }
-
-    // Numbers: 0..9
-    if (current == '0' || isInitialState) {
-      current = key;
-    } else {
-      // Check decimal places in current segment
-      final segments = current.split(RegExp(r'[+\-]'));
-      final lastSegment = segments.isNotEmpty ? segments.last : '';
-      if (lastSegment.contains('.')) {
-        final decimals = lastSegment.split('.').last;
-        if (decimals.length >= 2) {
-          // Already 2 decimal places, don't add more
-          return;
-        }
-      }
-      // Maximum length safety
-      if (current.length < 16) {
-        current += key;
-      }
-    }
-    onChanged(current);
-  }
-
-  bool _hasPendingCalculation(String text) {
-    final clean = text.trim();
-    if (clean.length < 2) return false;
-    final body = clean.startsWith('-') ? clean.substring(1) : clean;
-    return body.contains('+') || body.contains('-');
+    final updated = CurrencyFormat.processKeyInput(
+      currentExpression: amountText,
+      key: key,
+      isInitialState: isInitialState,
+    );
+    onChanged(updated);
   }
 
   void _onDone() {
     final clean = amountText.replaceAll(',', '');
-    if (_hasPendingCalculation(clean)) {
+    if (CurrencyFormat.hasPendingCalculation(clean)) {
       final res = CurrencyFormat.parseExpression(clean);
       onChanged(CurrencyFormat.formatRaw(res));
     }

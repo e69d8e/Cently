@@ -6,6 +6,7 @@ import '../../providers/transaction_provider.dart';
 import '../../theme/app_colors.dart';
 import '../category_manage/category_manage_screen.dart';
 import 'data_backup_screen.dart';
+import 'recycle_bin_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -181,10 +182,44 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Data Management Section
-          _buildSectionHeader('数据备份与迁移', isDark),
+          _buildSectionHeader('数据管理与备份', isDark),
           _buildCard(
             isDark,
             children: [
+              ListTile(
+                leading: const Icon(Icons.auto_delete_outlined),
+                title: const Text('账单回收站'),
+                subtitle: Text(
+                  txProvider.deletedCount > 0
+                      ? '共 ${txProvider.deletedCount} 笔已删除账单 · 30天内可找回'
+                      : '30天内已删除记录可找回',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (txProvider.deletedCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.income.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${txProvider.deletedCount}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.income,
+                          ),
+                        ),
+                      ),
+                    const Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+                onTap: () => RecycleBinScreen.show(context),
+              ),
+              const Divider(),
               ListTile(
                 leading: const Icon(Icons.cloud_upload_outlined),
                 title: const Text('数据导出与备份'),
@@ -220,7 +255,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.info_outline_rounded),
                 title: const Text('关于 分厘'),
-                subtitle: const Text('版本 1.0.0 · 本地安全存储'),
+                subtitle: const Text('版本 1.0.1 · 本地安全存储'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showAboutDialog(context),
               ),

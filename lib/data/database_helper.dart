@@ -18,6 +18,17 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
+  @visibleForTesting
+  static void setDatabaseForTesting(Database? db) {
+    _database = db;
+    _initFuture = db != null ? Future.value(db) : null;
+  }
+
+  @visibleForTesting
+  Future<void> createDBForTesting(Database db) async {
+    await _createDB(db, 4);
+  }
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _initFuture ??= _initDB('cently_bookkeeping.db');
@@ -41,15 +52,33 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 4,
       onConfigure: _configureDB,
       onCreate: _createDB,
+      onUpgrade: _onUpgradeDB,
     );
   }
 
   Future<void> _configureDB(Database db) async {
-    // Enable SQLite foreign key constraint support
+    // Enable SQLite foreign key constraint support and high-performance caching pragmas
     await db.execute('PRAGMA foreign_keys = ON;');
+    await db.execute('PRAGMA synchronous = NORMAL;');
+    await db.execute('PRAGMA temp_store = MEMORY;');
+    await db.execute('PRAGMA cache_size = -2000;');
+  }
+
+  Future<void> _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE transactions ADD COLUMN deletedAt INTEGER;');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_deletedAt ON transactions(deletedAt);');
+    }
+    if (oldVersion < 3) {
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_deleted_timestamp ON transactions(deletedAt, timestamp);');
+    }
+    if (oldVersion < 4) {
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_cat_deleted ON transactions(categoryId, deletedAt);');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_type_deleted ON transactions(type, deletedAt);');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -89,13 +118,18 @@ class DatabaseHelper {
         name TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
         remark TEXT,
-        createdAt INTEGER NOT NULL
+        createdAt INTEGER NOT NULL,
+        deletedAt INTEGER
       )
     ''');
 
     // 4. Create indices for high-frequency queries
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_categoryId ON transactions(categoryId);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_deletedAt ON transactions(deletedAt);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_deleted_timestamp ON transactions(deletedAt, timestamp);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_cat_deleted ON transactions(categoryId, deletedAt);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_type_deleted ON transactions(type, deletedAt);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_preset_items_categoryId ON preset_items(categoryId);');
 
     // Seed default data
@@ -262,22 +296,98 @@ class DatabaseHelper {
     );
   }
 
+  /// Soft deletes a transaction and records deletion timestamp for 30-day retention
+  Future<int> softDeleteTransaction(String id, {DateTime? deletedAt}) async {
+    final db = await database;
+    final deleteTime = (deletedAt ?? DateTime.now()).millisecondsSinceEpoch;
+    return await db.update(
+      'transactions',
+      {'deletedAt': deleteTime},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Alias for softDeleteTransaction to ensure safety
   Future<int> deleteTransaction(String id) async {
+    return await softDeleteTransaction(id);
+  }
+
+  /// Restores a soft-deleted transaction from recycle bin
+  Future<int> restoreTransaction(String id) async {
+    final db = await database;
+    return await db.update(
+      'transactions',
+      {'deletedAt': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Restores all deleted transactions from recycle bin
+  Future<int> restoreAllTransactions() async {
+    final db = await database;
+    return await db.update(
+      'transactions',
+      {'deletedAt': null},
+      where: 'deletedAt IS NOT NULL',
+    );
+  }
+
+  /// Permanently deletes a transaction from SQLite
+  Future<int> permanentlyDeleteTransaction(String id) async {
     final db = await database;
     return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Clears all transactions in recycle bin permanently
+  Future<int> clearRecycleBin() async {
+    final db = await database;
+    return await db.delete('transactions', where: 'deletedAt IS NOT NULL');
+  }
+
+  /// Automatically cleans up transactions deleted more than [retentionDays] (default: 30) days ago
+  Future<int> cleanupExpiredDeletedTransactions({int retentionDays = 30}) async {
+    final db = await database;
+    final threshold = DateTime.now().subtract(Duration(days: retentionDays)).millisecondsSinceEpoch;
+    return await db.delete(
+      'transactions',
+      where: 'deletedAt IS NOT NULL AND deletedAt < ?',
+      whereArgs: [threshold],
+    );
+  }
+
+  /// Retrieves all deleted transactions sorted by deletion time (latest first)
+  Future<List<TransactionRecord>> getDeletedTransactions() async {
+    final db = await database;
+    final result = await db.query(
+      'transactions',
+      where: 'deletedAt IS NOT NULL',
+      orderBy: 'deletedAt DESC, timestamp DESC',
+    );
+    return result.map((map) => TransactionRecord.fromMap(map)).toList();
+  }
+
+  /// Retrieves the total count of deleted transactions currently in recycle bin
+  Future<int> getDeletedTransactionsCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM transactions WHERE deletedAt IS NOT NULL',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<List<TransactionRecord>> getTransactionsByMonth(DateTime month) async {
     final db = await database;
     final startOfMonth = DateTime(month.year, month.month, 1);
-    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59, 999);
+    final startOfNextMonth = DateTime(month.year, month.month + 1, 1);
 
     final result = await db.query(
       'transactions',
-      where: 'timestamp >= ? AND timestamp <= ?',
+      where: 'deletedAt IS NULL AND timestamp >= ? AND timestamp < ?',
       whereArgs: [
         startOfMonth.millisecondsSinceEpoch,
-        endOfMonth.millisecondsSinceEpoch,
+        startOfNextMonth.millisecondsSinceEpoch,
       ],
       orderBy: 'timestamp DESC, createdAt DESC',
     );
@@ -286,14 +396,18 @@ class DatabaseHelper {
 
   Future<List<TransactionRecord>> getAllTransactions() async {
     final db = await database;
-    final result = await db.query('transactions', orderBy: 'timestamp DESC, createdAt DESC');
+    final result = await db.query(
+      'transactions',
+      where: 'deletedAt IS NULL',
+      orderBy: 'timestamp DESC, createdAt DESC',
+    );
     return result.map((map) => TransactionRecord.fromMap(map)).toList();
   }
 
   Future<int> countTransactionsByCategory(String categoryId) async {
     final db = await database;
     final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM transactions WHERE categoryId = ?',
+      'SELECT COUNT(*) as count FROM transactions WHERE deletedAt IS NULL AND categoryId = ?',
       [categoryId],
     );
     return Sqflite.firstIntValue(result) ?? 0;
@@ -314,8 +428,8 @@ class DatabaseHelper {
       if (data.containsKey('categories') && data['categories'] is List) {
         final catList = data['categories'] as List;
         for (final item in catList) {
-          if (item is Map<String, dynamic>) {
-            final cat = Category.fromMap(item);
+          if (item is Map) {
+            final cat = Category.fromMap(Map<String, dynamic>.from(item));
             batch.insert(
               'categories',
               cat.toMap(),
@@ -330,8 +444,8 @@ class DatabaseHelper {
       if (data.containsKey('presetItems') && data['presetItems'] is List) {
         final presetList = data['presetItems'] as List;
         for (final item in presetList) {
-          if (item is Map<String, dynamic>) {
-            final preset = PresetItem.fromMap(item);
+          if (item is Map) {
+            final preset = PresetItem.fromMap(Map<String, dynamic>.from(item));
             batch.insert(
               'preset_items',
               preset.toMap(),
@@ -346,8 +460,8 @@ class DatabaseHelper {
       if (data.containsKey('transactions') && data['transactions'] is List) {
         final txList = data['transactions'] as List;
         for (final item in txList) {
-          if (item is Map<String, dynamic>) {
-            final tx = TransactionRecord.fromMap(item);
+          if (item is Map) {
+            final tx = TransactionRecord.fromMap(Map<String, dynamic>.from(item));
             batch.insert(
               'transactions',
               tx.toMap(),

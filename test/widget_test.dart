@@ -7,10 +7,15 @@ import 'package:cently/models/category.dart';
 import 'package:cently/models/transaction_record.dart';
 import 'package:cently/providers/category_provider.dart';
 import 'package:cently/providers/transaction_provider.dart';
+import 'package:cently/screens/home/home_screen.dart';
+import 'package:cently/screens/main_navigation_screen.dart';
 import 'package:cently/screens/record/add_record_screen.dart';
+import 'package:cently/screens/settings/recycle_bin_screen.dart';
+import 'package:cently/screens/stats/stats_screen.dart';
 import 'package:cently/theme/app_colors.dart';
 import 'package:cently/utils/currency_format.dart';
 import 'package:cently/widgets/date_or_month_picker_sheet.dart';
+import 'package:cently/widgets/numeric_keyboard.dart';
 import 'package:cently/widgets/record_date_time_picker_sheet.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -224,6 +229,59 @@ void main() {
     expect(find.text('9'), findsNWidgets(2)); // Keypad key 9 and amount 9
   });
 
+  testWidgets('Editing existing transaction record remark and clearing remark works', (WidgetTester tester) async {
+    final testRecord = TransactionRecord(
+      id: 'tx_edit_remark_test',
+      amount: 88.0,
+      type: CategoryType.expense,
+      categoryId: 'cat_dining',
+      categoryName: '餐饮',
+      name: '咖啡甜品',
+      dateTime: DateTime.now(),
+      remark: '原备注：少糖加冰',
+    );
+
+    final txProvider = TransactionProvider();
+    final catProvider = CategoryProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: catProvider),
+          ChangeNotifierProvider.value(value: txProvider),
+        ],
+        child: MaterialApp(
+          home: AddRecordScreen(initialRecord: testRecord),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify initial remark is populated in TextField
+    expect(find.text('原备注：少糖加冰'), findsOneWidget);
+
+    // Find the remark TextField by finding TextField with hint '添加备注 (选填)...'
+    final remarkFieldFinder = find.widgetWithText(TextField, '原备注：少糖加冰');
+    expect(remarkFieldFinder, findsOneWidget);
+
+    // 1. Clear remark via clear button icon
+    final clearButtonFinder = find.byIcon(Icons.clear);
+    expect(clearButtonFinder, findsWidgets); // May have clear buttons for name and remark
+    // Tap the last clear button which corresponds to remark
+    await tester.tap(clearButtonFinder.last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('原备注：少糖加冰'), findsNothing);
+
+    // 2. Enter new remark text containing numbers and verify amount remains 88
+    await tester.enterText(find.byType(TextField).last, '2人份 外带 102号');
+    await tester.pumpAndSettle();
+
+    expect(find.text('2人份 外带 102号'), findsOneWidget);
+    // Verify amount '88' is untouched
+    expect(find.text('88'), findsOneWidget);
+  });
+
   testWidgets('Delete confirmation dialog displays record details and handles cancel and confirm', (WidgetTester tester) async {
     final record = TransactionRecord(
       id: 'tx_dialog_test',
@@ -344,6 +402,328 @@ void main() {
     expect(find.text('测试条目'), findsNothing);
     expect(dismissed, true);
   });
+
+  testWidgets('Settings screen contains Recycle Bin entry and navigates to RecycleBinScreen', (WidgetTester tester) async {
+    await tester.pumpWidget(const CentlyApp());
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Tap on 设置 tab
+    await tester.tap(find.text('设置'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Verify presence of 账单回收站
+    expect(find.text('账单回收站'), findsOneWidget);
+
+    // Tap on 账单回收站
+    await tester.tap(find.text('账单回收站'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Verify RecycleBinScreen is opened
+    expect(find.byType(RecycleBinScreen), findsOneWidget);
+  });
+
+  testWidgets('RecycleBinScreen renders correctly with empty and deleted records', (WidgetTester tester) async {
+    final txProvider = TransactionProvider();
+    final catProvider = CategoryProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: catProvider),
+          ChangeNotifierProvider.value(value: txProvider),
+        ],
+        child: const MaterialApp(
+          home: RecycleBinScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Initially empty
+    expect(find.text('回收站为空'), findsOneWidget);
+  });
+
+  testWidgets('In AddRecordScreen with initial record, pressing dot resets to 0.', (WidgetTester tester) async {
+    final catProvider = CategoryProvider();
+    final txProvider = TransactionProvider();
+
+    final testRecord = TransactionRecord(
+      id: 'tx_init_dot_test',
+      amount: 1500.0,
+      type: CategoryType.expense,
+      categoryId: 'cat_dining',
+      categoryName: '餐饮',
+      name: '正餐',
+      dateTime: DateTime.now(),
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: catProvider),
+          ChangeNotifierProvider.value(value: txProvider),
+        ],
+        child: MaterialApp(
+          home: AddRecordScreen(initialRecord: testRecord),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Initial expression is '1500'
+    expect(find.text('1500'), findsOneWidget);
+
+    // Tap '.'
+    await tester.tap(find.text('.'));
+    await tester.pumpAndSettle();
+
+    // Verify it changed to '0.' instead of '1500.'
+    expect(find.text('0.'), findsOneWidget);
+  });
+
+  testWidgets('StatsScreen displays empty state when no transactions', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CategoryProvider()),
+          ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ],
+        child: const MaterialApp(
+          home: StatsScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('暂无支出数据'), findsOneWidget);
+    expect(find.text('本月还没有支出记录'), findsOneWidget);
+  });
+
+  testWidgets('AddRecordScreen pre-populates initialCategory and initialName for repeat record flow', (WidgetTester tester) async {
+    final cat = Category(
+      id: 'cat_dining',
+      name: '餐饮',
+      type: CategoryType.expense,
+      iconKey: 'restaurant',
+      colorValue: 0xFFE11D48,
+      sortOrder: 0,
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CategoryProvider()),
+          ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ],
+        child: MaterialApp(
+          home: AddRecordScreen(
+            initialCategory: cat,
+            initialName: '星巴克美式',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('星巴克美式'), findsOneWidget);
+    expect(find.text('餐饮'), findsWidgets);
+  });
+
+  testWidgets('MainNavigationScreen.switchToTab switches active tab programmatically', (WidgetTester tester) async {
+    await tester.pumpWidget(const CentlyApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final BuildContext context = tester.element(find.byType(HomeScreen));
+    MainNavigationScreen.switchToTab(context, 1); // Switch to Stats
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(StatsScreen), findsOneWidget);
+  });
+
+  testWidgets('AddRecordScreen pops directly without prompt if amount is 0', (WidgetTester tester) async {
+    final catProvider = CategoryProvider();
+    final txProvider = TransactionProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: catProvider),
+          ChangeNotifierProvider.value(value: txProvider),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => AddRecordScreen.show(context),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Open AddRecordScreen
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AddRecordScreen), findsOneWidget);
+
+    // Tap close button directly without entering amount
+    final closeBtn = find.byIcon(Icons.close_rounded);
+    expect(closeBtn, findsOneWidget);
+    await tester.tap(closeBtn);
+    await tester.pumpAndSettle();
+
+    // No dialog should appear and screen pops back to Open button
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(AddRecordScreen), findsNothing);
+    expect(find.text('Open'), findsOneWidget);
+  });
+
+  testWidgets('AddRecordScreen prompts user when amount > 0 and handles Cancel and Discard', (WidgetTester tester) async {
+    final catProvider = CategoryProvider();
+    final txProvider = TransactionProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: catProvider),
+          ChangeNotifierProvider.value(value: txProvider),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => AddRecordScreen.show(context),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Finder numKey(String label) {
+      return find.descendant(
+        of: find.byType(NumericKeyboard),
+        matching: find.text(label),
+      );
+    }
+
+    // 1. Open AddRecordScreen
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AddRecordScreen), findsOneWidget);
+
+    // Enter amount 25
+    await tester.tap(numKey('2'));
+    await tester.pump();
+    await tester.tap(numKey('5'));
+    await tester.pump();
+    expect(find.text('25'), findsOneWidget);
+
+    // Tap close button
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+
+    // Verify dialog appears
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('保存本次记录？'), findsOneWidget);
+    expect(find.text('您已输入金额 ¥25，是否需要保存？'), findsOneWidget);
+
+    // Tap "取消" (Cancel)
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    // Dialog should be gone, AddRecordScreen still open with amount 25
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(AddRecordScreen), findsOneWidget);
+    expect(find.text('25'), findsOneWidget);
+
+    // 2. Test Discard ("不保存") flow
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('保存本次记录？'), findsOneWidget);
+    await tester.tap(find.text('不保存'));
+    await tester.pumpAndSettle();
+
+    // Screen should be closed and returned to root
+    expect(find.byType(AddRecordScreen), findsNothing);
+    expect(find.text('Open'), findsOneWidget);
+  });
+
+  testWidgets('AddRecordScreen in edit mode prompts when modified', (WidgetTester tester) async {
+    final catProvider = CategoryProvider();
+    final txProvider = TransactionProvider();
+
+    final testRecord = TransactionRecord(
+      id: 'tx_edit_prompt_test',
+      amount: 50.0,
+      type: CategoryType.expense,
+      categoryId: 'cat_exp_food',
+      categoryName: '餐饮',
+      name: '午餐',
+      dateTime: DateTime.now(),
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: catProvider),
+          ChangeNotifierProvider.value(value: txProvider),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => AddRecordScreen.show(context, initialRecord: testRecord),
+              child: const Text('Edit Record'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Without modifications, tap close -> pops directly
+    await tester.tap(find.text('Edit Record'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AddRecordScreen), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(AddRecordScreen), findsNothing);
+
+    // 2. With modifications, tap close -> shows prompt
+    await tester.tap(find.text('Edit Record'));
+    await tester.pumpAndSettle();
+
+    // Modify amount
+    final key8 = find.descendant(of: find.byType(NumericKeyboard), matching: find.text('8'));
+    await tester.tap(key8);
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('保存修改？'), findsOneWidget);
+    expect(find.text('当前修改尚未保存，是否保存后再退出？'), findsOneWidget);
+
+    await tester.tap(find.text('不保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AddRecordScreen), findsNothing);
+    expect(find.text('Edit Record'), findsOneWidget);
+  });
 }
+
 
 

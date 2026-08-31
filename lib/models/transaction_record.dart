@@ -10,6 +10,7 @@ class TransactionRecord {
   final DateTime dateTime;
   final String? remark;
   final DateTime createdAt;
+  final DateTime? deletedAt;
 
   TransactionRecord({
     required this.id,
@@ -21,7 +22,21 @@ class TransactionRecord {
     required this.dateTime,
     this.remark,
     DateTime? createdAt,
+    this.deletedAt,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  bool get isDeleted => deletedAt != null;
+
+  int get remainingDays {
+    if (deletedAt == null) return 30;
+    final now = DateTime.now();
+    final difference = now.difference(deletedAt!).inSeconds;
+    final daysPassed = difference / (24 * 3600);
+    final remaining = (30 - daysPassed).ceil();
+    if (remaining < 0) return 0;
+    if (remaining > 30) return 30;
+    return remaining;
+  }
 
   TransactionRecord copyWith({
     String? id,
@@ -32,7 +47,10 @@ class TransactionRecord {
     String? name,
     DateTime? dateTime,
     String? remark,
+    bool clearRemark = false,
     DateTime? createdAt,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
   }) {
     return TransactionRecord(
       id: id ?? this.id,
@@ -42,8 +60,9 @@ class TransactionRecord {
       categoryName: categoryName ?? this.categoryName,
       name: name ?? this.name,
       dateTime: dateTime ?? this.dateTime,
-      remark: remark ?? this.remark,
+      remark: clearRemark ? null : (remark ?? this.remark),
       createdAt: createdAt ?? this.createdAt,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
 
@@ -58,6 +77,7 @@ class TransactionRecord {
       'timestamp': dateTime.millisecondsSinceEpoch,
       'remark': remark,
       'createdAt': createdAt.millisecondsSinceEpoch,
+      'deletedAt': deletedAt?.millisecondsSinceEpoch,
     };
   }
 
@@ -74,6 +94,9 @@ class TransactionRecord {
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         map['createdAt'] as int? ?? map['timestamp'] as int,
       ),
+      deletedAt: map['deletedAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['deletedAt'] as int)
+          : null,
     );
   }
 }

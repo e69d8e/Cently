@@ -11,6 +11,14 @@ import 'stats/stats_screen.dart';
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
+  /// Allows child widgets to programmatically navigate to a tab
+  static void switchToTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_MainNavigationScreenState>();
+    if (state != null) {
+      state._onTabSelected(index);
+    }
+  }
+
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
@@ -28,6 +36,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _onTabSelected(int index) {
     if (_currentIndex == index) return;
     HapticFeedback.selectionClick();
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     setState(() {
       _currentIndex = index;
     });

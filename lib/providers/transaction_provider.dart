@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../data/database_helper.dart';
 import '../models/category.dart';
 import '../models/transaction_record.dart';
+import '../utils/currency_format.dart';
 
 class CategoryStat {
   final String categoryId;
@@ -47,100 +48,158 @@ class TransactionProvider extends ChangeNotifier {
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
   List<TransactionRecord> _monthRecords = [];
+  List<TransactionRecord> _deletedRecords = [];
   bool _isLoading = true;
+  bool _isLoadingRecycleBin = false;
 
   String _searchQuery = '';
   String? _filterCategoryId;
+
+  // Cached derived states
+  Set<int> _recordedDaysInMonth = {};
+  List<TransactionRecord> _filteredRecords = [];
+  Map<DateTime, List<TransactionRecord>> _dailyGroupedRecords = {};
+  double _currentViewExpense = 0.0;
+  double _currentViewIncome = 0.0;
+  double _currentViewBalance = 0.0;
+  double _totalExpense = 0.0;
+  double _totalIncome = 0.0;
+  double _netBalance = 0.0;
+  List<CategoryStat> _expenseCategoryStats = [];
+  List<CategoryStat> _incomeCategoryStats = [];
+  List<ItemStat> _expenseTopItemStats = [];
+  List<ItemStat> _incomeTopItemStats = [];
 
   DateTime get selectedMonth => _selectedMonth;
   DateTime? get selectedDay => _selectedDay;
   bool get isDayMode => _selectedDay != null;
   List<TransactionRecord> get monthRecords => _monthRecords;
+  List<TransactionRecord> get deletedRecords => _deletedRecords;
+  int get deletedCount => _deletedRecords.length;
   bool get isLoading => _isLoading;
+  bool get isLoadingRecycleBin => _isLoadingRecycleBin;
   String get searchQuery => _searchQuery;
   String? get filterCategoryId => _filterCategoryId;
 
-  // Set of days (1..31) that have records in the currently loaded month
-  Set<int> get recordedDaysInMonth {
-    return _monthRecords.map((r) => r.dateTime.day).toSet();
+  Set<int> get recordedDaysInMonth => _recordedDaysInMonth;
+  List<TransactionRecord> get filteredRecords => _filteredRecords;
+  double get currentViewExpense => _currentViewExpense;
+  double get currentViewIncome => _currentViewIncome;
+  double get currentViewBalance => _currentViewBalance;
+  double get totalExpense => _totalExpense;
+  double get totalIncome => _totalIncome;
+  double get netBalance => _netBalance;
+  Map<DateTime, List<TransactionRecord>> get dailyGroupedRecords => _dailyGroupedRecords;
+
+  @visibleForTesting
+  void setMonthRecordsForTesting(List<TransactionRecord> records) {
+    _monthRecords = records;
+    _recomputeDerivedState();
+    notifyListeners();
   }
 
-  // Filtered records (by selectedDay if set, by filterCategory, and by search query)
-  List<TransactionRecord> get filteredRecords {
-    return _monthRecords.where((record) {
-      if (_selectedDay != null) {
-        if (record.dateTime.year != _selectedDay!.year ||
-            record.dateTime.month != _selectedDay!.month ||
-            record.dateTime.day != _selectedDay!.day) {
-          return false;
+  void _recomputeDerivedState() {
+    double expSum = 0.0;
+    double incSum = 0.0;
+    final recordedDays = <int>{};
+
+    final normalizedQuery = _searchQuery.trim().toLowerCase();
+    final hasQuery = normalizedQuery.isNotEmpty;
+
+    final filtered = <TransactionRecord>[];
+    double viewExp = 0.0;
+    double viewInc = 0.0;
+    final Map<DateTime, List<TransactionRecord>> dailyMap = {};
+
+    // Single-pass aggregators for categories and high-frequency item names
+    final Map<String, (String name, double amount, int count)> expCatMap = {};
+    final Map<String, (String name, double amount, int count)> incCatMap = {};
+    final Map<String, (String catName, double amount, int count)> expItemMap = {};
+    final Map<String, (String catName, double amount, int count)> incItemMap = {};
+
+    for (final r in _monthRecords) {
+      final isExp = r.type == CategoryType.expense;
+      final amount = r.amount;
+
+      // 1. Monthly totals & active recorded days
+      recordedDays.add(r.dateTime.day);
+      if (isExp) {
+        expSum += amount;
+        final existingCat = expCatMap[r.categoryId];
+        if (existingCat == null) {
+          expCatMap[r.categoryId] = (r.categoryName, amount, 1);
+        } else {
+          expCatMap[r.categoryId] = (existingCat.$1, existingCat.$2 + amount, existingCat.$3 + 1);
+        }
+        final existingItem = expItemMap[r.name];
+        if (existingItem == null) {
+          expItemMap[r.name] = (r.categoryName, amount, 1);
+        } else {
+          expItemMap[r.name] = (existingItem.$1, existingItem.$2 + amount, existingItem.$3 + 1);
+        }
+      } else {
+        incSum += amount;
+        final existingCat = incCatMap[r.categoryId];
+        if (existingCat == null) {
+          incCatMap[r.categoryId] = (r.categoryName, amount, 1);
+        } else {
+          incCatMap[r.categoryId] = (existingCat.$1, existingCat.$2 + amount, existingCat.$3 + 1);
+        }
+        final existingItem = incItemMap[r.name];
+        if (existingItem == null) {
+          incItemMap[r.name] = (r.categoryName, amount, 1);
+        } else {
+          incItemMap[r.name] = (existingItem.$1, existingItem.$2 + amount, existingItem.$3 + 1);
         }
       }
-      if (_filterCategoryId != null && record.categoryId != _filterCategoryId) {
-        return false;
+
+      // 2. Filtered view evaluation
+      if (_selectedDay != null) {
+        if (r.dateTime.year != _selectedDay!.year ||
+            r.dateTime.month != _selectedDay!.month ||
+            r.dateTime.day != _selectedDay!.day) {
+          continue;
+        }
       }
-      if (_searchQuery.trim().isNotEmpty) {
-        final query = _searchQuery.trim().toLowerCase();
-        final nameMatch = record.name.toLowerCase().contains(query);
-        final catMatch = record.categoryName.toLowerCase().contains(query);
-        final remarkMatch = record.remark?.toLowerCase().contains(query) ?? false;
-        return nameMatch || catMatch || remarkMatch;
+      if (_filterCategoryId != null && r.categoryId != _filterCategoryId) {
+        continue;
       }
-      return true;
-    }).toList();
-  }
+      if (hasQuery) {
+        final nameMatch = r.name.toLowerCase().contains(normalizedQuery);
+        final catMatch = r.categoryName.toLowerCase().contains(normalizedQuery);
+        final remarkMatch = r.remark?.toLowerCase().contains(normalizedQuery) ?? false;
+        if (!nameMatch && !catMatch && !remarkMatch) {
+          continue;
+        }
+      }
 
-  // Current view totals (for selectedDay if in day mode, else for whole month)
-  double get currentViewExpense {
-    final list = isDayMode
-        ? _monthRecords.where((r) =>
-            r.dateTime.year == _selectedDay!.year &&
-            r.dateTime.month == _selectedDay!.month &&
-            r.dateTime.day == _selectedDay!.day &&
-            r.type == CategoryType.expense)
-        : _monthRecords.where((r) => r.type == CategoryType.expense);
-    return list.fold(0.0, (sum, r) => sum + r.amount);
-  }
+      filtered.add(r);
+      if (isExp) {
+        viewExp += amount;
+      } else {
+        viewInc += amount;
+      }
 
-  double get currentViewIncome {
-    final list = isDayMode
-        ? _monthRecords.where((r) =>
-            r.dateTime.year == _selectedDay!.year &&
-            r.dateTime.month == _selectedDay!.month &&
-            r.dateTime.day == _selectedDay!.day &&
-            r.type == CategoryType.income)
-        : _monthRecords.where((r) => r.type == CategoryType.income);
-    return list.fold(0.0, (sum, r) => sum + r.amount);
-  }
-
-  double get currentViewBalance => currentViewIncome - currentViewExpense;
-
-  // Monthly totals
-  double get totalExpense {
-    return _monthRecords
-        .where((r) => r.type == CategoryType.expense)
-        .fold(0.0, (sum, r) => sum + r.amount);
-  }
-
-  double get totalIncome {
-    return _monthRecords
-        .where((r) => r.type == CategoryType.income)
-        .fold(0.0, (sum, r) => sum + r.amount);
-  }
-
-  double get netBalance => totalIncome - totalExpense;
-
-  // Grouped by day (Key: DateTime normalized to midnight)
-  Map<DateTime, List<TransactionRecord>> get dailyGroupedRecords {
-    final Map<DateTime, List<TransactionRecord>> map = {};
-    for (final record in filteredRecords) {
-      final dateKey = DateTime(
-        record.dateTime.year,
-        record.dateTime.month,
-        record.dateTime.day,
-      );
-      map.putIfAbsent(dateKey, () => []).add(record);
+      final dateKey = DateTime(r.dateTime.year, r.dateTime.month, r.dateTime.day);
+      dailyMap.putIfAbsent(dateKey, () => []).add(r);
     }
-    return map;
+
+    _totalExpense = (expSum * 100).round() / 100;
+    _totalIncome = (incSum * 100).round() / 100;
+    _netBalance = ((_totalIncome - _totalExpense) * 100).round() / 100;
+    _recordedDaysInMonth = recordedDays;
+
+    _filteredRecords = filtered;
+    _currentViewExpense = (viewExp * 100).round() / 100;
+    _currentViewIncome = (viewInc * 100).round() / 100;
+    _currentViewBalance = ((_currentViewIncome - _currentViewExpense) * 100).round() / 100;
+    _dailyGroupedRecords = dailyMap;
+
+    // 3. Build Category Stats
+    _expenseCategoryStats = _buildCategoryStatsList(expCatMap, _totalExpense, CategoryType.expense);
+    _incomeCategoryStats = _buildCategoryStatsList(incCatMap, _totalIncome, CategoryType.income);
+    _expenseTopItemStats = _buildTopItemList(expItemMap, CategoryType.expense);
+    _incomeTopItemStats = _buildTopItemList(incItemMap, CategoryType.income);
   }
 
   // Initialize and load
@@ -149,12 +208,77 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // 1. Auto cleanup deleted records older than 30 days
+      await _db.cleanupExpiredDeletedTransactions(retentionDays: 30);
+
+      // 2. Fetch current month active records
       _monthRecords = await _db.getTransactionsByMonth(_selectedMonth);
+      _recomputeDerivedState();
+
+      // 3. Fetch deleted records for recycle bin
+      _deletedRecords = await _db.getDeletedTransactions();
     } catch (e) {
       debugPrint('Error loading current month transactions: $e');
       _monthRecords = [];
+      _recomputeDerivedState();
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  List<CategoryStat> _buildCategoryStatsList(
+    Map<String, (String name, double amount, int count)> catMap,
+    double totalAmount,
+    CategoryType type,
+  ) {
+    if (totalAmount <= 0 || catMap.isEmpty) return const [];
+    final List<CategoryStat> stats = catMap.entries.map((entry) {
+      final amount = (entry.value.$2 * 100).round() / 100;
+      return CategoryStat(
+        categoryId: entry.key,
+        categoryName: entry.value.$1,
+        amount: amount,
+        percentage: totalAmount > 0 ? (amount / totalAmount) : 0.0,
+        count: entry.value.$3,
+        type: type,
+      );
+    }).toList();
+    stats.sort((a, b) => b.amount.compareTo(a.amount));
+    return stats;
+  }
+
+  List<ItemStat> _buildTopItemList(
+    Map<String, (String catName, double amount, int count)> itemMap,
+    CategoryType type,
+  ) {
+    if (itemMap.isEmpty) return const [];
+    final List<ItemStat> stats = itemMap.entries.map((entry) {
+      final amount = (entry.value.$2 * 100).round() / 100;
+      return ItemStat(
+        name: entry.key,
+        categoryName: entry.value.$1,
+        amount: amount,
+        count: entry.value.$3,
+        type: type,
+      );
+    }).toList();
+    stats.sort((a, b) => b.amount.compareTo(a.amount));
+    return stats;
+  }
+
+  Future<void> loadRecycleBin() async {
+    _isLoadingRecycleBin = true;
+    notifyListeners();
+
+    try {
+      await _db.cleanupExpiredDeletedTransactions(retentionDays: 30);
+      _deletedRecords = await _db.getDeletedTransactions();
+    } catch (e) {
+      debugPrint('Error loading recycle bin: $e');
+      _deletedRecords = [];
+    } finally {
+      _isLoadingRecycleBin = false;
       notifyListeners();
     }
   }
@@ -168,6 +292,7 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> selectDay(DateTime? day) async {
     if (day == null) {
       _selectedDay = null;
+      _recomputeDerivedState();
       notifyListeners();
       return;
     }
@@ -180,12 +305,14 @@ class TransactionProvider extends ChangeNotifier {
       _selectedMonth = DateTime(day.year, day.month);
       await loadCurrentMonth();
     } else {
+      _recomputeDerivedState();
       notifyListeners();
     }
   }
 
   void clearSelectedDay() {
     _selectedDay = null;
+    _recomputeDerivedState();
     notifyListeners();
   }
 
@@ -221,11 +348,13 @@ class TransactionProvider extends ChangeNotifier {
 
   void setSearchQuery(String query) {
     _searchQuery = query;
+    _recomputeDerivedState();
     notifyListeners();
   }
 
   void setFilterCategory(String? categoryId) {
     _filterCategoryId = categoryId;
+    _recomputeDerivedState();
     notifyListeners();
   }
 
@@ -273,73 +402,60 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> deleteTransaction(String id) async {
-    await _db.deleteTransaction(id);
-    _monthRecords.removeWhere((r) => r.id == id);
+    final now = DateTime.now();
+    await _db.softDeleteTransaction(id, deletedAt: now);
+    final index = _monthRecords.indexWhere((r) => r.id == id);
+    if (index != -1) {
+      final record = _monthRecords[index].copyWith(deletedAt: now);
+      _monthRecords.removeAt(index);
+      _deletedRecords.insert(0, record);
+    } else {
+      _deletedRecords = await _db.getDeletedTransactions();
+    }
+    _recomputeDerivedState();
+    notifyListeners();
+  }
+
+  /// Restores a single deleted transaction back to active records
+  Future<void> restoreTransaction(String id) async {
+    await _db.restoreTransaction(id);
+    _deletedRecords.removeWhere((r) => r.id == id);
+    await loadCurrentMonth();
+  }
+
+  /// Restores all deleted transactions from recycle bin
+  Future<void> restoreAll() async {
+    await _db.restoreAllTransactions();
+    _deletedRecords.clear();
+    await loadCurrentMonth();
+  }
+
+  /// Permanently deletes a single transaction
+  Future<void> permanentlyDeleteTransaction(String id) async {
+    await _db.permanentlyDeleteTransaction(id);
+    _deletedRecords.removeWhere((r) => r.id == id);
+    notifyListeners();
+  }
+
+  /// Empties the entire recycle bin permanently
+  Future<void> emptyRecycleBin() async {
+    await _db.clearRecycleBin();
+    _deletedRecords.clear();
     notifyListeners();
   }
 
   // ================= STATISTICS =================
 
   List<CategoryStat> getCategoryStats(CategoryType type) {
-    final recordsOfType = _monthRecords.where((r) => r.type == type).toList();
-    final totalAmount = recordsOfType.fold(0.0, (sum, r) => sum + r.amount);
-
-    if (totalAmount <= 0) return [];
-
-    final Map<String, (String name, double amount, int count)> catMap = {};
-    for (final r in recordsOfType) {
-      if (!catMap.containsKey(r.categoryId)) {
-        catMap[r.categoryId] = (r.categoryName, 0.0, 0);
-      }
-      final cur = catMap[r.categoryId]!;
-      catMap[r.categoryId] = (cur.$1, cur.$2 + r.amount, cur.$3 + 1);
-    }
-
-    final List<CategoryStat> stats = catMap.entries.map((entry) {
-      final amount = entry.value.$2;
-      return CategoryStat(
-        categoryId: entry.key,
-        categoryName: entry.value.$1,
-        amount: amount,
-        percentage: totalAmount > 0 ? (amount / totalAmount) : 0.0,
-        count: entry.value.$3,
-        type: type,
-      );
-    }).toList();
-
-    // Sort by amount descending
-    stats.sort((a, b) => b.amount.compareTo(a.amount));
-    return stats;
+    return type == CategoryType.expense ? _expenseCategoryStats : _incomeCategoryStats;
   }
 
   List<ItemStat> getTopItemStats(CategoryType type, {int limit = 10}) {
-    final recordsOfType = _monthRecords.where((r) => r.type == type).toList();
-    final Map<String, (String catName, double amount, int count)> itemMap = {};
-
-    for (final r in recordsOfType) {
-      if (!itemMap.containsKey(r.name)) {
-        itemMap[r.name] = (r.categoryName, 0.0, 0);
-      }
-      final cur = itemMap[r.name]!;
-      itemMap[r.name] = (cur.$1, cur.$2 + r.amount, cur.$3 + 1);
+    final list = type == CategoryType.expense ? _expenseTopItemStats : _incomeTopItemStats;
+    if (list.length > limit) {
+      return list.sublist(0, limit);
     }
-
-    final List<ItemStat> stats = itemMap.entries.map((entry) {
-      return ItemStat(
-        name: entry.key,
-        categoryName: entry.value.$1,
-        amount: entry.value.$2,
-        count: entry.value.$3,
-        type: type,
-      );
-    }).toList();
-
-    // Sort by total amount descending
-    stats.sort((a, b) => b.amount.compareTo(a.amount));
-    if (stats.length > limit) {
-      return stats.sublist(0, limit);
-    }
-    return stats;
+    return list;
   }
 
   // ================= DATA EXPORT =================
@@ -351,7 +467,7 @@ class TransactionProvider extends ChangeNotifier {
 
     final data = {
       'app': 'Cently',
-      'version': '1.0.0',
+      'version': '1.0.1',
       'exportTime': DateTime.now().toIso8601String(),
       'categories': categories.map((c) => c.toMap()).toList(),
       'presetItems': presets.map((p) => p.toMap()).toList(),
@@ -367,10 +483,13 @@ class TransactionProvider extends ChangeNotifier {
     buffer.writeln('日期时间,收支类型,分类,名称,金额,备注');
 
     for (final r in allRecords) {
-      final dateStr = r.dateTime.toIso8601String();
-      final typeStr = r.type.displayName;
-      final remarkStr = (r.remark ?? '').replaceAll('"', '""');
-      buffer.writeln('"$dateStr","$typeStr","${r.categoryName}","${r.name}",${r.amount.toStringAsFixed(2)},"$remarkStr"');
+      final dateStr = CurrencyFormat.escapeCsvField(r.dateTime.toIso8601String());
+      final typeStr = CurrencyFormat.escapeCsvField(r.type.displayName);
+      final catStr = CurrencyFormat.escapeCsvField(r.categoryName);
+      final nameStr = CurrencyFormat.escapeCsvField(r.name);
+      final amountStr = r.amount.toStringAsFixed(2);
+      final remarkStr = CurrencyFormat.escapeCsvField(r.remark ?? '');
+      buffer.writeln('$dateStr,$typeStr,$catStr,$nameStr,$amountStr,$remarkStr');
     }
 
     return buffer.toString();

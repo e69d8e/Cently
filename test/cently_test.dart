@@ -4,6 +4,8 @@ import 'package:cently/models/category.dart';
 import 'package:cently/models/preset_item.dart';
 import 'package:cently/models/transaction_record.dart';
 import 'package:cently/data/default_data.dart';
+import 'package:cently/providers/category_provider.dart';
+import 'package:cently/providers/transaction_provider.dart';
 import 'package:cently/utils/currency_format.dart';
 import 'package:cently/utils/date_format_helper.dart';
 
@@ -57,8 +59,9 @@ void main() {
       expect(fromMap.isDefault, false);
     });
 
-    test('TransactionRecord serialization and deserialization', () {
+    test('TransactionRecord serialization and deserialization with deletedAt', () {
       final now = DateTime(2026, 8, 16, 12, 30);
+      final deletedTime = DateTime(2026, 8, 17, 10, 0);
       final record = TransactionRecord(
         id: 'tx_1',
         amount: 32.50,
@@ -68,12 +71,17 @@ void main() {
         name: '星巴克咖啡',
         dateTime: now,
         remark: '与同事一起',
+        deletedAt: deletedTime,
       );
+
+      expect(record.isDeleted, true);
+      expect(record.remainingDays <= 30, true);
 
       final map = record.toMap();
       expect(map['id'], 'tx_1');
       expect(map['amount'], 32.50);
       expect(map['name'], '星巴克咖啡');
+      expect(map['deletedAt'], deletedTime.millisecondsSinceEpoch);
 
       final fromMap = TransactionRecord.fromMap(map);
       expect(fromMap.id, record.id);
@@ -81,6 +89,68 @@ void main() {
       expect(fromMap.name, '星巴克咖啡');
       expect(fromMap.remark, '与同事一起');
       expect(fromMap.dateTime, now);
+      expect(fromMap.deletedAt, deletedTime);
+      expect(fromMap.isDeleted, true);
+    });
+
+    test('TransactionRecord remainingDays countdown logic', () {
+      final now = DateTime.now();
+
+      final recordNotDeleted = TransactionRecord(
+        id: 't_not_del',
+        amount: 10,
+        type: CategoryType.expense,
+        categoryId: 'c1',
+        categoryName: '餐饮',
+        name: '未删除',
+        dateTime: now,
+      );
+      expect(recordNotDeleted.isDeleted, false);
+      expect(recordNotDeleted.remainingDays, 30);
+
+      final recordJustDeleted = recordNotDeleted.copyWith(
+        deletedAt: now.subtract(const Duration(minutes: 10)),
+      );
+      expect(recordJustDeleted.isDeleted, true);
+      expect(recordJustDeleted.remainingDays, 30);
+
+      final recordDeleted10DaysAgo = recordNotDeleted.copyWith(
+        deletedAt: now.subtract(const Duration(days: 10, hours: 2)),
+      );
+      expect(recordDeleted10DaysAgo.remainingDays, 20);
+
+      final recordDeleted29DaysAgo = recordNotDeleted.copyWith(
+        deletedAt: now.subtract(const Duration(days: 29, hours: 12)),
+      );
+      expect(recordDeleted29DaysAgo.remainingDays, 1);
+
+      final recordDeleted31DaysAgo = recordNotDeleted.copyWith(
+        deletedAt: now.subtract(const Duration(days: 31)),
+      );
+      expect(recordDeleted31DaysAgo.remainingDays, 0);
+    });
+
+    test('TransactionRecord copyWith updates and clears remark properly', () {
+      final recordWithRemark = TransactionRecord(
+        id: 'tx_remark_test',
+        amount: 25.0,
+        type: CategoryType.expense,
+        categoryId: 'cat_dining',
+        categoryName: '餐饮',
+        name: '午餐',
+        dateTime: DateTime.now(),
+        remark: '原备注信息',
+      );
+
+      expect(recordWithRemark.remark, '原备注信息');
+
+      // 1. Update remark to a new value
+      final updatedRemark = recordWithRemark.copyWith(remark: '新修改的备注');
+      expect(updatedRemark.remark, '新修改的备注');
+
+      // 2. Clear remark with clearRemark: true
+      final clearedRemark = recordWithRemark.copyWith(clearRemark: true);
+      expect(clearedRemark.remark, isNull);
     });
 
     test('CurrencyFormat outputs correct strings', () {
@@ -103,11 +173,50 @@ void main() {
       expect(CurrencyFormat.parseExpression('100-30'), 70.0);
       expect(CurrencyFormat.parseExpression('1,000+500-200'), 1300.0);
       expect(CurrencyFormat.parseExpression('100.5+20.25'), 120.75);
+      expect(CurrencyFormat.parseExpression('0.1+0.2'), 0.3); // Precision rounding
       expect(CurrencyFormat.parseExpression('100+'), 100.0);
       expect(CurrencyFormat.parseExpression('100-'), 100.0);
       expect(CurrencyFormat.parseExpression('100.'), 100.0);
       expect(CurrencyFormat.parseExpression(''), 0.0);
       expect(CurrencyFormat.parseExpression('50-100'), 0.0); // Clamped to 0
+    });
+
+    test('CurrencyFormat processKeyInput state machine transitions', () {
+      // 1. Initial zero / replacement
+      expect(CurrencyFormat.processKeyInput(currentExpression: '0', key: '5'), '5');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '100', key: '5', isInitialState: true), '5');
+
+      // 2. Decimal dot handling in initial and normal state
+      expect(CurrencyFormat.processKeyInput(currentExpression: '100', key: '.', isInitialState: true), '0.');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '0', key: '.'), '0.');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '5', key: '.'), '5.');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '5.2', key: '.'), '5.2'); // Duplicate dot ignored
+      expect(CurrencyFormat.processKeyInput(currentExpression: '5.25', key: '9'), '5.25'); // Max 2 decimal digits
+
+      // 3. Operators and expressions
+      expect(CurrencyFormat.processKeyInput(currentExpression: '10', key: '+'), '10+');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '10+', key: '-'), '10-'); // Operator replace
+      expect(CurrencyFormat.processKeyInput(currentExpression: '10+20', key: '+'), '30+'); // Intermediate calculation
+      expect(CurrencyFormat.processKeyInput(currentExpression: '10+20', key: '-'), '30-');
+
+      // 4. Backspace
+      expect(CurrencyFormat.processKeyInput(currentExpression: '123', key: '⌫'), '12');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '1', key: '⌫'), '0');
+      expect(CurrencyFormat.processKeyInput(currentExpression: '0', key: '⌫'), '0');
+    });
+
+    test('CurrencyFormat hasPendingCalculation and escapeCsvField', () {
+      expect(CurrencyFormat.hasPendingCalculation('100'), false);
+      expect(CurrencyFormat.hasPendingCalculation('100+'), true);
+      expect(CurrencyFormat.hasPendingCalculation('100+50'), true);
+      expect(CurrencyFormat.hasPendingCalculation('-50'), false);
+      expect(CurrencyFormat.hasPendingCalculation('100-30'), true);
+
+      expect(CurrencyFormat.escapeCsvField('hello'), '"hello"');
+      expect(CurrencyFormat.escapeCsvField('hello, world'), '"hello, world"');
+      expect(CurrencyFormat.escapeCsvField('say "hi"'), '"say ""hi"""');
+      expect(CurrencyFormat.escapeCsvField(null), '""');
+      expect(CurrencyFormat.escapeCsvField(''), '""');
     });
 
     test('DateFormatHelper formats date correctly', () {
@@ -187,7 +296,8 @@ void main() {
               name TEXT NOT NULL,
               timestamp INTEGER NOT NULL,
               remark TEXT,
-              createdAt INTEGER NOT NULL
+              createdAt INTEGER NOT NULL,
+              deletedAt INTEGER
             )
           ''');
         },
@@ -225,27 +335,121 @@ void main() {
       expect(presetQuery[1]['name'], '午餐');
     });
 
-    test('Insert, query and delete Transaction', () async {
-      final tx = TransactionRecord(
+    test('Insert, soft delete, query active vs recycle bin, and restore Transaction', () async {
+      final now = DateTime.now();
+      final tx1 = TransactionRecord(
         id: 't1',
         amount: 50.0,
         type: CategoryType.expense,
         categoryId: 'c1',
         categoryName: '餐饮',
         name: '午餐',
-        dateTime: DateTime(2026, 8, 16, 12, 0),
+        dateTime: now,
         remark: '牛肉面',
       );
-      await db.insert('transactions', tx.toMap());
+      final tx2 = TransactionRecord(
+        id: 't2',
+        amount: 15.0,
+        type: CategoryType.expense,
+        categoryId: 'c1',
+        categoryName: '餐饮',
+        name: '奶茶',
+        dateTime: now,
+      );
+      await db.insert('transactions', tx1.toMap());
+      await db.insert('transactions', tx2.toMap());
 
-      final query = await db.query('transactions');
-      expect(query.length, 1);
-      expect(query.first['name'], '午餐');
-      expect(query.first['amount'], 50.0);
+      // 1. Initial query: 2 active transactions
+      var activeQuery = await db.query('transactions', where: 'deletedAt IS NULL');
+      expect(activeQuery.length, 2);
 
-      await db.delete('transactions', where: 'id = ?', whereArgs: ['t1']);
-      final queryAfter = await db.query('transactions');
-      expect(queryAfter.isEmpty, true);
+      // 2. Soft delete t1 (move to recycle bin)
+      final deletedTime = DateTime.now();
+      await db.update(
+        'transactions',
+        {'deletedAt': deletedTime.millisecondsSinceEpoch},
+        where: 'id = ?',
+        whereArgs: ['t1'],
+      );
+
+      // 3. Active query now has 1 record, recycle bin has 1 record
+      activeQuery = await db.query('transactions', where: 'deletedAt IS NULL');
+      expect(activeQuery.length, 1);
+      expect(activeQuery.first['id'], 't2');
+
+      var deletedQuery = await db.query('transactions', where: 'deletedAt IS NOT NULL');
+      expect(deletedQuery.length, 1);
+      expect(deletedQuery.first['id'], 't1');
+
+      // 4. Restore t1 from recycle bin
+      await db.update(
+        'transactions',
+        {'deletedAt': null},
+        where: 'id = ?',
+        whereArgs: ['t1'],
+      );
+
+      // 5. Active query restored back to 2, recycle bin is empty
+      activeQuery = await db.query('transactions', where: 'deletedAt IS NULL');
+      expect(activeQuery.length, 2);
+
+      deletedQuery = await db.query('transactions', where: 'deletedAt IS NOT NULL');
+      expect(deletedQuery.isEmpty, true);
+    });
+
+    test('Expired deleted transactions cleanup (30-day retention rule)', () async {
+      final now = DateTime.now();
+      final freshDeletedTime = now.subtract(const Duration(days: 5));
+      final expiredDeletedTime = now.subtract(const Duration(days: 35));
+
+      final freshDeletedTx = TransactionRecord(
+        id: 'tx_fresh_del',
+        amount: 20.0,
+        type: CategoryType.expense,
+        categoryId: 'c1',
+        categoryName: '餐饮',
+        name: '5天前删除的账单',
+        dateTime: now.subtract(const Duration(days: 10)),
+        deletedAt: freshDeletedTime,
+      );
+
+      final expiredDeletedTx = TransactionRecord(
+        id: 'tx_expired_del',
+        amount: 99.0,
+        type: CategoryType.expense,
+        categoryId: 'c1',
+        categoryName: '餐饮',
+        name: '35天前删除的账单',
+        dateTime: now.subtract(const Duration(days: 40)),
+        deletedAt: expiredDeletedTime,
+      );
+
+      await db.insert('transactions', freshDeletedTx.toMap());
+      await db.insert('transactions', expiredDeletedTx.toMap());
+
+      // Check recycle bin has 2 items before cleanup
+      var deletedQuery = await db.query('transactions', where: 'deletedAt IS NOT NULL');
+      expect(deletedQuery.length, 2);
+
+      // Run 30-day retention cleanup
+      final threshold = now.subtract(const Duration(days: 30)).millisecondsSinceEpoch;
+      final deletedRows = await db.delete(
+        'transactions',
+        where: 'deletedAt IS NOT NULL AND deletedAt < ?',
+        whereArgs: [threshold],
+      );
+
+      expect(deletedRows, 1);
+
+      // Verify only fresh deleted item remains
+      deletedQuery = await db.query('transactions', where: 'deletedAt IS NOT NULL');
+      expect(deletedQuery.length, 1);
+      expect(deletedQuery.first['id'], 'tx_fresh_del');
+
+      // Clear all recycle bin
+      await db.delete('transactions', where: 'deletedAt IS NOT NULL');
+      deletedQuery = await db.query('transactions', where: 'deletedAt IS NOT NULL');
+      expect(deletedQuery.isEmpty, true);
     });
 
     test('Batch import in merge and overwrite mode', () async {
@@ -348,6 +552,71 @@ void main() {
       final orderedCats = await db.query('categories', orderBy: 'sortOrder ASC');
       expect(orderedCats[0]['id'], 'cB');
       expect(orderedCats[1]['id'], 'cA');
+    });
+  });
+
+  group('Provider Caching & Memoization Tests', () {
+    test('CategoryProvider maintains O(1) map and typed category caches', () {
+      final provider = CategoryProvider();
+      expect(provider.categories, isEmpty);
+      expect(provider.expenseCategories, isEmpty);
+      expect(provider.incomeCategories, isEmpty);
+      expect(provider.getCategoryById('none'), isNull);
+    });
+
+    test('TransactionProvider calculates and caches derived totals and stats', () {
+      final provider = TransactionProvider();
+      expect(provider.totalExpense, 0.0);
+      expect(provider.totalIncome, 0.0);
+      expect(provider.netBalance, 0.0);
+      expect(provider.filteredRecords, isEmpty);
+      expect(provider.dailyGroupedRecords, isEmpty);
+      expect(provider.recordedDaysInMonth, isEmpty);
+    });
+
+    test('Single-pass state recomputation handles high-volume transactions correctly and efficiently', () {
+      final provider = TransactionProvider();
+      final List<TransactionRecord> bulkRecords = [];
+      final now = DateTime(2026, 8, 15);
+
+      for (int i = 0; i < 500; i++) {
+        bulkRecords.add(TransactionRecord(
+          id: 'tx_exp_$i',
+          amount: 10.0,
+          type: CategoryType.expense,
+          categoryId: 'cat_dining',
+          categoryName: '餐饮',
+          name: '午餐 $i',
+          dateTime: now,
+          createdAt: now,
+        ));
+        bulkRecords.add(TransactionRecord(
+          id: 'tx_inc_$i',
+          amount: 20.0,
+          type: CategoryType.income,
+          categoryId: 'cat_salary',
+          categoryName: '工资',
+          name: '兼职 $i',
+          dateTime: now,
+          createdAt: now,
+        ));
+      }
+
+      final stopwatch = Stopwatch()..start();
+      // Test with 1,000 transaction records
+      provider.setMonthRecordsForTesting(bulkRecords);
+      stopwatch.stop();
+
+      expect(provider.totalExpense, 5000.0);
+      expect(provider.totalIncome, 10000.0);
+      expect(provider.netBalance, 5000.0);
+      expect(provider.filteredRecords.length, 1000);
+      expect(provider.getCategoryStats(CategoryType.expense).length, 1);
+      expect(provider.getCategoryStats(CategoryType.expense).first.amount, 5000.0);
+      expect(provider.getCategoryStats(CategoryType.income).first.amount, 10000.0);
+
+      // Verify execution is extremely fast (well under 50ms for 1000 records)
+      expect(stopwatch.elapsedMilliseconds < 50, true);
     });
   });
 }

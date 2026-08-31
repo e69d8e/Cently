@@ -10,6 +10,9 @@ class CategoryProvider extends ChangeNotifier {
   final Uuid _uuid = const Uuid();
 
   List<Category> _categories = [];
+  Map<String, Category> _categoryMap = {};
+  List<Category> _expenseCategories = [];
+  List<Category> _incomeCategories = [];
   Map<String, List<PresetItem>> _presetItemsMap = {};
   bool _isLoading = true;
 
@@ -17,11 +20,14 @@ class CategoryProvider extends ChangeNotifier {
   Map<String, List<PresetItem>> get presetItemsMap => _presetItemsMap;
   bool get isLoading => _isLoading;
 
-  List<Category> get expenseCategories =>
-      _categories.where((c) => c.type == CategoryType.expense).toList();
+  List<Category> get expenseCategories => _expenseCategories;
+  List<Category> get incomeCategories => _incomeCategories;
 
-  List<Category> get incomeCategories =>
-      _categories.where((c) => c.type == CategoryType.income).toList();
+  void _updateCategoryCaches() {
+    _categoryMap = {for (final c in _categories) c.id: c};
+    _expenseCategories = _categories.where((c) => c.type == CategoryType.expense).toList(growable: false);
+    _incomeCategories = _categories.where((c) => c.type == CategoryType.income).toList(growable: false);
+  }
 
   Future<void> loadData() async {
     _isLoading = true;
@@ -29,6 +35,7 @@ class CategoryProvider extends ChangeNotifier {
 
     try {
       _categories = await _db.getAllCategories();
+      _updateCategoryCaches();
       final allPresets = await _db.getAllPresetItems();
 
       _presetItemsMap = {};
@@ -41,6 +48,7 @@ class CategoryProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading category data: $e');
       _categories = [];
+      _updateCategoryCaches();
       _presetItemsMap = {};
     } finally {
       _isLoading = false;
@@ -49,14 +57,11 @@ class CategoryProvider extends ChangeNotifier {
   }
 
   List<PresetItem> getPresetsForCategory(String categoryId) {
-    return _presetItemsMap[categoryId] ?? [];
+    return _presetItemsMap[categoryId] ?? const [];
   }
 
   Category? getCategoryById(String categoryId) {
-    for (final c in _categories) {
-      if (c.id == categoryId) return c;
-    }
-    return null;
+    return _categoryMap[categoryId];
   }
 
   // ================= CATEGORY OPERATIONS =================
@@ -83,6 +88,7 @@ class CategoryProvider extends ChangeNotifier {
 
     await _db.insertCategory(category);
     _categories.add(category);
+    _updateCategoryCaches();
 
     _presetItemsMap[newId] = [];
     if (initialPresetNames != null && initialPresetNames.isNotEmpty) {
@@ -108,6 +114,7 @@ class CategoryProvider extends ChangeNotifier {
     final index = _categories.indexWhere((c) => c.id == category.id);
     if (index != -1) {
       _categories[index] = category;
+      _updateCategoryCaches();
       notifyListeners();
     }
   }
@@ -115,6 +122,7 @@ class CategoryProvider extends ChangeNotifier {
   Future<bool> deleteCategory(String categoryId) async {
     await _db.deleteCategory(categoryId);
     _categories.removeWhere((c) => c.id == categoryId);
+    _updateCategoryCaches();
     _presetItemsMap.remove(categoryId);
     notifyListeners();
     return true;
@@ -140,6 +148,7 @@ class CategoryProvider extends ChangeNotifier {
     final otherTypeCategories = _categories.where((c) => c.type != type).toList();
     _categories = [...otherTypeCategories, ...updatedList]
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    _updateCategoryCaches();
 
     notifyListeners();
   }
