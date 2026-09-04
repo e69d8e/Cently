@@ -65,6 +65,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   bool _isCustomNameActive = false;
   bool _isInitialAmountState = false;
   final FocusNode _keyboardFocusNode = FocusNode();
+  String? _cachedPresetCategoryId;
+  List<PresetItem> _cachedSortedPresets = const [];
 
   @override
   void initState() {
@@ -135,6 +137,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     setState(() {
       _type = type;
       _isCustomNameActive = false;
+      _cachedPresetCategoryId = null;
       final catProvider = Provider.of<CategoryProvider>(context, listen: false);
       final list = type == CategoryType.expense
           ? catProvider.expenseCategories
@@ -151,6 +154,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   void _onCategorySelected(Category category) {
     setState(() {
       _selectedCategory = category;
+      _cachedPresetCategoryId = null;
       final catProvider = Provider.of<CategoryProvider>(context, listen: false);
       final presets = catProvider.getPresetsForCategory(category.id);
       if (!_isCustomNameActive) {
@@ -483,8 +487,47 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         _amountExpression = '0';
         _isInitialAmountState = false;
         _remarkController.clear();
+        _cachedPresetCategoryId = null;
       });
     }
+  }
+
+  List<PresetItem> _getSortedPresets(
+    Category? category,
+    CategoryProvider catProvider,
+    TransactionProvider txProvider,
+  ) {
+    if (category == null) return const [];
+    if (_cachedPresetCategoryId == category.id) {
+      return _cachedSortedPresets;
+    }
+
+    final rawPresets = catProvider.getPresetsForCategory(category.id);
+    if (rawPresets.isEmpty) {
+      _cachedPresetCategoryId = category.id;
+      _cachedSortedPresets = const [];
+      return const [];
+    }
+
+    final sorted = List<PresetItem>.from(rawPresets);
+    final frequencyMap = <String, int>{};
+    for (final r in txProvider.monthRecords) {
+      if (r.categoryId == category.id) {
+        frequencyMap[r.name] = (frequencyMap[r.name] ?? 0) + 1;
+      }
+    }
+    sorted.sort((a, b) {
+      final countA = frequencyMap[a.name] ?? 0;
+      final countB = frequencyMap[b.name] ?? 0;
+      if (countA != countB) {
+        return countB.compareTo(countA); // Higher frequency first
+      }
+      return a.sortOrder.compareTo(b.sortOrder);
+    });
+
+    _cachedPresetCategoryId = category.id;
+    _cachedSortedPresets = sorted;
+    return sorted;
   }
 
   Future<void> _selectDateTime() async {
@@ -524,28 +567,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     }
 
     final txProvider = Provider.of<TransactionProvider>(context, listen: false);
-    final rawPresets = _selectedCategory != null
-        ? catProvider.getPresetsForCategory(_selectedCategory!.id)
-        : <PresetItem>[];
-
-    // Smart sort: sort presets by usage frequency in this category
-    final currentPresets = List<PresetItem>.from(rawPresets);
-    if (_selectedCategory != null && currentPresets.isNotEmpty) {
-      final frequencyMap = <String, int>{};
-      for (final r in txProvider.monthRecords) {
-        if (r.categoryId == _selectedCategory!.id) {
-          frequencyMap[r.name] = (frequencyMap[r.name] ?? 0) + 1;
-        }
-      }
-      currentPresets.sort((a, b) {
-        final countA = frequencyMap[a.name] ?? 0;
-        final countB = frequencyMap[b.name] ?? 0;
-        if (countA != countB) {
-          return countB.compareTo(countA); // Higher frequency first
-        }
-        return a.sortOrder.compareTo(b.sortOrder);
-      });
-    }
+    final currentPresets = _getSortedPresets(_selectedCategory, catProvider, txProvider);
 
     final accentColor = _type == CategoryType.expense
         ? AppColors.expense

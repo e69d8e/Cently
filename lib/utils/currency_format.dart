@@ -42,10 +42,19 @@ class CurrencyFormat {
       String clean = input.replaceAll(',', '').trim();
       if (clean.isEmpty) return 0.0;
 
-      while (clean.endsWith('+') || clean.endsWith('-') || clean.endsWith('.')) {
-        clean = clean.substring(0, clean.length - 1).trim();
+      int end = clean.length;
+      while (end > 0) {
+        final c = clean[end - 1];
+        if (c == '+' || c == '-' || c == '.' || c == ' ') {
+          end--;
+        } else {
+          break;
+        }
       }
-      if (clean.isEmpty) return 0.0;
+      if (end <= 0) return 0.0;
+      if (end < clean.length) {
+        clean = clean.substring(0, end);
+      }
 
       double total = 0.0;
       String currentNum = '';

@@ -252,8 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final txProvider = Provider.of<TransactionProvider>(context);
     final catProvider = Provider.of<CategoryProvider>(context);
 
-    final dailyGroups = txProvider.dailyGroupedRecords;
-    final sortedDates = dailyGroups.keys.toList()..sort((a, b) => b.compareTo(a));
+    final sortedGroups = txProvider.sortedDailyGroups;
 
     final now = DateTime.now();
     final isCurrentPeriod = (!txProvider.isDayMode &&
@@ -475,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: txProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : sortedDates.isEmpty
+                : sortedGroups.isEmpty
                     ? (txProvider.searchQuery.isNotEmpty || txProvider.filterCategoryId != null)
                         ? EmptyState(
                             title: '未找到匹配的记账记录',
@@ -508,15 +507,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           )
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        itemCount: sortedDates.length,
+                        itemCount: sortedGroups.length,
                         itemBuilder: (context, dateIndex) {
-                          final date = sortedDates[dateIndex];
-                          final dayRecords = dailyGroups[date] ?? const [];
+                          final group = sortedGroups[dateIndex];
 
                           return _DayGroupCard(
-                            key: ValueKey(date.millisecondsSinceEpoch),
-                            date: date,
-                            dayRecords: dayRecords,
+                            key: ValueKey(group.date.millisecondsSinceEpoch),
+                            group: group,
                             isDark: isDark,
                             catProvider: catProvider,
                             onTapRecord: (record) => _showTransactionDetails(context, record),
@@ -671,8 +668,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _DayGroupCard extends StatelessWidget {
-  final DateTime date;
-  final List<TransactionRecord> dayRecords;
+  final DailyTransactionGroup group;
   final bool isDark;
   final CategoryProvider catProvider;
   final ValueChanged<TransactionRecord> onTapRecord;
@@ -680,8 +676,7 @@ class _DayGroupCard extends StatelessWidget {
 
   const _DayGroupCard({
     super.key,
-    required this.date,
-    required this.dayRecords,
+    required this.group,
     required this.isDark,
     required this.catProvider,
     required this.onTapRecord,
@@ -690,15 +685,10 @@ class _DayGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double dayExpense = 0.0;
-    double dayIncome = 0.0;
-    for (final r in dayRecords) {
-      if (r.type == CategoryType.expense) {
-        dayExpense += r.amount;
-      } else {
-        dayIncome += r.amount;
-      }
-    }
+    final date = group.date;
+    final dayRecords = group.records;
+    final dayExpense = group.totalExpense;
+    final dayIncome = group.totalIncome;
 
     return RepaintBoundary(
       child: Container(

@@ -59,6 +59,7 @@ class TransactionProvider extends ChangeNotifier {
   Set<int> _recordedDaysInMonth = {};
   List<TransactionRecord> _filteredRecords = [];
   Map<DateTime, List<TransactionRecord>> _dailyGroupedRecords = {};
+  List<DailyTransactionGroup> _sortedDailyGroups = [];
   double _currentViewExpense = 0.0;
   double _currentViewIncome = 0.0;
   double _currentViewBalance = 0.0;
@@ -90,6 +91,7 @@ class TransactionProvider extends ChangeNotifier {
   double get totalIncome => _totalIncome;
   double get netBalance => _netBalance;
   Map<DateTime, List<TransactionRecord>> get dailyGroupedRecords => _dailyGroupedRecords;
+  List<DailyTransactionGroup> get sortedDailyGroups => _sortedDailyGroups;
 
   @visibleForTesting
   void setMonthRecordsForTesting(List<TransactionRecord> records) {
@@ -183,6 +185,47 @@ class TransactionProvider extends ChangeNotifier {
       final dateKey = DateTime(r.dateTime.year, r.dateTime.month, r.dateTime.day);
       dailyMap.putIfAbsent(dateKey, () => []).add(r);
     }
+
+    // 2.1 Build pre-sorted and pre-aggregated DailyTransactionGroup list
+    final List<DailyTransactionGroup> sortedGroups = [];
+    DateTime? currentGroupDate;
+    List<TransactionRecord> currentDayRecords = [];
+    double currentDayExp = 0.0;
+    double currentDayInc = 0.0;
+
+    for (final r in filtered) {
+      final date = DateTime(r.dateTime.year, r.dateTime.month, r.dateTime.day);
+      if (currentGroupDate == null || currentGroupDate != date) {
+        if (currentGroupDate != null) {
+          sortedGroups.add(DailyTransactionGroup(
+            date: currentGroupDate,
+            records: currentDayRecords,
+            totalExpense: (currentDayExp * 100).round() / 100,
+            totalIncome: (currentDayInc * 100).round() / 100,
+          ));
+        }
+        currentGroupDate = date;
+        currentDayRecords = [r];
+        currentDayExp = (r.type == CategoryType.expense) ? r.amount : 0.0;
+        currentDayInc = (r.type == CategoryType.income) ? r.amount : 0.0;
+      } else {
+        currentDayRecords.add(r);
+        if (r.type == CategoryType.expense) {
+          currentDayExp += r.amount;
+        } else {
+          currentDayInc += r.amount;
+        }
+      }
+    }
+    if (currentGroupDate != null) {
+      sortedGroups.add(DailyTransactionGroup(
+        date: currentGroupDate,
+        records: currentDayRecords,
+        totalExpense: (currentDayExp * 100).round() / 100,
+        totalIncome: (currentDayInc * 100).round() / 100,
+      ));
+    }
+    _sortedDailyGroups = sortedGroups;
 
     _totalExpense = (expSum * 100).round() / 100;
     _totalIncome = (incSum * 100).round() / 100;
@@ -467,7 +510,7 @@ class TransactionProvider extends ChangeNotifier {
 
     final data = {
       'app': 'Cently',
-      'version': '1.0.1',
+      'version': '1.0.2',
       'exportTime': DateTime.now().toIso8601String(),
       'categories': categories.map((c) => c.toMap()).toList(),
       'presetItems': presets.map((p) => p.toMap()).toList(),

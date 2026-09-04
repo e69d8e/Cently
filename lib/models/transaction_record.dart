@@ -100,3 +100,17 @@ class TransactionRecord {
     );
   }
 }
+
+class DailyTransactionGroup {
+  final DateTime date;
+  final List<TransactionRecord> records;
+  final double totalExpense;
+  final double totalIncome;
+
+  const DailyTransactionGroup({
+    required this.date,
+    required this.records,
+    required this.totalExpense,
+    required this.totalIncome,
+  });
+}

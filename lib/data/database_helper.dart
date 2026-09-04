@@ -31,9 +31,14 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _initFuture ??= _initDB('cently_bookkeeping.db');
-    _database = await _initFuture;
-    return _database!;
+    try {
+      _initFuture ??= _initDB('cently_bookkeeping.db');
+      _database = await _initFuture;
+      return _database!;
+    } catch (e) {
+      _initFuture = null;
+      rethrow;
+    }
   }
 
   Future<Database> _initDB(String filePath) async {
@@ -52,7 +57,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onConfigure: _configureDB,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
@@ -78,6 +83,9 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_cat_deleted ON transactions(categoryId, deletedAt);');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_type_deleted ON transactions(type, deletedAt);');
+    }
+    if (oldVersion < 5) {
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_active_order ON transactions(deletedAt, timestamp DESC, createdAt DESC);');
     }
   }
 
@@ -130,6 +138,7 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_deleted_timestamp ON transactions(deletedAt, timestamp);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_cat_deleted ON transactions(categoryId, deletedAt);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_type_deleted ON transactions(type, deletedAt);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_active_order ON transactions(deletedAt, timestamp DESC, createdAt DESC);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_preset_items_categoryId ON preset_items(categoryId);');
 
     // Seed default data
