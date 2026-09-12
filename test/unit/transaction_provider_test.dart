@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:cently/data/database_helper.dart';
 import 'package:cently/models/category.dart';
 import 'package:cently/models/transaction_record.dart';
 import 'package:cently/providers/transaction_provider.dart';
@@ -12,10 +14,20 @@ void main() {
   });
 
   group('TransactionProvider Unit Tests', () {
+    late Database db;
     late TransactionProvider provider;
     late List<TransactionRecord> sampleRecords;
 
-    setUp(() {
+    setUp(() async {
+      db = await openDatabase(
+        inMemoryDatabasePath,
+        version: 5,
+        onCreate: (db, version) async {
+          await DatabaseHelper.instance.createDBForTesting(db);
+        },
+      );
+      DatabaseHelper.setDatabaseForTesting(db);
+
       provider = TransactionProvider();
       final month = provider.selectedMonth;
       final day15 = DateTime(month.year, month.month, 15, 12, 0);
@@ -63,6 +75,11 @@ void main() {
       ];
 
       provider.setMonthRecordsForTesting(sampleRecords);
+    });
+
+    tearDown(() async {
+      DatabaseHelper.setDatabaseForTesting(null);
+      await db.close();
     });
 
     test('Initial aggregation and totals match records', () {
@@ -218,6 +235,199 @@ void main() {
       expect(validPreview.categoriesCount, 1);
       expect(validPreview.presetsCount, 1);
       expect(validPreview.transactionsCount, 2);
+    });
+
+    test('getTotalTransactionsCount returns integer count from database', () async {
+      final count = await provider.getTotalTransactionsCount();
+      expect(count, isA<int>());
+      expect(count >= 0, true);
+    });
+
+    test('exportAsJson and exportAsCsv for specific month filter correctly', () async {
+      final augDate = DateTime(2026, 8, 15, 10, 0);
+      final sepDate = DateTime(2026, 9, 5, 12, 0);
+
+      final txAug = TransactionRecord(
+        id: 'tx_aug',
+        amount: 50.0,
+        type: CategoryType.expense,
+        categoryId: 'cat_dining',
+        categoryName: '餐饮',
+        name: '八月聚餐',
+        dateTime: augDate,
+      );
+      final txSep = TransactionRecord(
+        id: 'tx_sep',
+        amount: 80.0,
+        type: CategoryType.expense,
+        categoryId: 'cat_dining',
+        categoryName: '餐饮',
+        name: '九月购物',
+        dateTime: sepDate,
+      );
+
+      await db.insert('transactions', txAug.toMap());
+      await db.insert('transactions', txSep.toMap());
+
+      // 1. Single month export (August)
+      final jsonAugStr = await provider.exportAsJson(month: DateTime(2026, 8));
+      final jsonAug = jsonDecode(jsonAugStr);
+      expect(jsonAug['exportScope'], 'month');
+      expect(jsonAug['targetMonth'], '2026-08');
+      final txListAug = jsonAug['transactions'] as List;
+      expect(txListAug.any((t) => t['id'] == 'tx_aug'), true);
+      expect(txListAug.any((t) => t['id'] == 'tx_sep'), false);
+
+      // 2. All months export
+      final jsonAllStr = await provider.exportAsJson();
+      final jsonAll = jsonDecode(jsonAllStr);
+      expect(jsonAll['exportScope'], 'all');
+      expect(jsonAll['targetMonth'], isNull);
+      final txListAll = jsonAll['transactions'] as List;
+      expect(txListAll.any((t) => t['id'] == 'tx_aug'), true);
+      expect(txListAll.any((t) => t['id'] == 'tx_sep'), true);
+
+      // 3. Single month CSV export
+      final csvAug = await provider.exportAsCsv(month: DateTime(2026, 8));
+      expect(csvAug.contains('八月聚餐'), true);
+      expect(csvAug.contains('九月购物'), false);
+
+      // 4. Month count
+      final countAug = await provider.getTransactionsCountByMonth(DateTime(2026, 8));
+      expect(countAug, 1);
+      final countSep = await provider.getTransactionsCountByMonth(DateTime(2026, 9));
+      expect(countSep, 1);
+    });
+
+    test('parseBackupPreview detects single-month metadata and transaction dates', () {
+      // With explicit metadata
+      final singleMonthJson = jsonEncode({
+        'app': 'Cently',
+        'exportScope': 'month',
+        'targetMonth': '2026-08',
+        'categories': [{'id': 'c1'}],
+        'presetItems': [],
+        'transactions': [{'id': 't1', 'timestamp': DateTime(2026, 8, 10).millisecondsSinceEpoch}],
+      });
+      final preview = provider.parseBackupPreview(singleMonthJson);
+      expect(preview.isValid, true);
+      expect(preview.isSingleMonth, true);
+      expect(preview.targetMonth, '2026-08');
+
+      // Without explicit metadata, auto-detected from uniform timestamps
+      final autoDetectJson = jsonEncode({
+        'app': 'Cently',
+        'categories': [{'id': 'c1'}],
+        'presetItems': [],
+        'transactions': [
+          {'id': 't1', 'timestamp': DateTime(2026, 7, 5).millisecondsSinceEpoch},
+          {'id': 't2', 'timestamp': DateTime(2026, 7, 20).millisecondsSinceEpoch},
+        ],
+      });
+      final autoPreview = provider.parseBackupPreview(autoDetectJson);
+      expect(autoPreview.isValid, true);
+      expect(autoPreview.isSingleMonth, true);
+      expect(autoPreview.targetMonth, '2026-07');
+
+      // Multiple months detected as all
+      final multiMonthJson = jsonEncode({
+        'app': 'Cently',
+        'categories': [{'id': 'c1'}],
+        'presetItems': [],
+        'transactions': [
+          {'id': 't1', 'timestamp': DateTime(2026, 6, 5).millisecondsSinceEpoch},
+          {'id': 't2', 'timestamp': DateTime(2026, 7, 20).millisecondsSinceEpoch},
+        ],
+      });
+      final multiPreview = provider.parseBackupPreview(multiMonthJson);
+      expect(multiPreview.isSingleMonth, false);
+      expect(multiPreview.exportScope, 'all');
+    });
+
+    test('Single-month overwrite import preserves transactions of other months', () async {
+      final augTx = TransactionRecord(
+        id: 'existing_aug',
+        amount: 100.0,
+        type: CategoryType.expense,
+        categoryId: 'c1',
+        categoryName: '餐饮',
+        name: '已有八月账单',
+        dateTime: DateTime(2026, 8, 1),
+      );
+      final sepTx = TransactionRecord(
+        id: 'existing_sep',
+        amount: 200.0,
+        type: CategoryType.expense,
+        categoryId: 'c1',
+        categoryName: '餐饮',
+        name: '已有九月账单',
+        dateTime: DateTime(2026, 9, 1),
+      );
+      await db.insert('transactions', augTx.toMap());
+      await db.insert('transactions', sepTx.toMap());
+
+      // Prepare backup for August only
+      final backupAug = jsonEncode({
+        'app': 'Cently',
+        'exportScope': 'month',
+        'targetMonth': '2026-08',
+        'categories': [],
+        'presetItems': [],
+        'transactions': [
+          TransactionRecord(
+            id: 'new_aug_tx',
+            amount: 88.0,
+            type: CategoryType.expense,
+            categoryId: 'c1',
+            categoryName: '餐饮',
+            name: '新恢复的八月账单',
+            dateTime: DateTime(2026, 8, 18),
+          ).toMap(),
+        ],
+      });
+
+      // Import in overwrite mode
+      final result = await provider.importFromJson(backupAug, overwrite: true);
+      expect(result.isSuccess, true);
+
+      // Verify August existing record was overwritten
+      final augRecords = await db.query('transactions', where: 'id = ?', whereArgs: ['existing_aug']);
+      expect(augRecords.isEmpty, true);
+
+      // Verify new August record exists
+      final newAugRecords = await db.query('transactions', where: 'id = ?', whereArgs: ['new_aug_tx']);
+      expect(newAugRecords.length, 1);
+
+      // Verify September existing record is PRESERVED!
+      final sepRecords = await db.query('transactions', where: 'id = ?', whereArgs: ['existing_sep']);
+      expect(sepRecords.length, 1);
+    });
+
+    test('generateExportFileName includes scope and exact timestamp suffix without illegal characters', () {
+      final fixedTime = DateTime(2026, 9, 4, 16, 35, 8);
+
+      // 1. Month scope JSON
+      final jsonMonthName = TransactionProvider.generateExportFileName(
+        prefix: 'cently_backup',
+        extension: 'json',
+        month: DateTime(2026, 9),
+        now: fixedTime,
+      );
+      expect(jsonMonthName, 'cently_backup_202609_20260904_163508.json');
+
+      // 2. All scope CSV
+      final csvAllName = TransactionProvider.generateExportFileName(
+        prefix: 'cently_transactions',
+        extension: '.csv',
+        month: null,
+        now: DateTime(2026, 1, 5, 8, 9, 2),
+      );
+      expect(csvAllName, 'cently_transactions_all_20260105_080902.csv');
+
+      // Check no illegal characters like :, /, \, space exist in filename
+      expect(jsonMonthName.contains(':'), false);
+      expect(jsonMonthName.contains('/'), false);
+      expect(jsonMonthName.contains(' '), false);
     });
   });
 }

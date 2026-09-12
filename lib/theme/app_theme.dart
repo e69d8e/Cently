@@ -64,28 +64,41 @@ class AppTheme {
         contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
         actionTextColor: AppColors.income,
       ),
+      tabBarTheme: TabBarThemeData(
+        indicatorColor: AppColors.primary,
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.textSecondary,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+      ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 32,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         headlineMedium: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 24,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.3,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         titleLarge: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 18,
           fontWeight: FontWeight.w600,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         titleMedium: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w500,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         bodyLarge: TextStyle(
           color: AppColors.textPrimary,
@@ -101,6 +114,7 @@ class AppTheme {
           color: AppColors.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
       ),
     );
@@ -167,28 +181,41 @@ class AppTheme {
         contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
         actionTextColor: AppColors.income,
       ),
+      tabBarTheme: const TabBarThemeData(
+        indicatorColor: AppColors.textPrimaryDark,
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: AppColors.textPrimaryDark,
+        unselectedLabelColor: AppColors.textSecondaryDark,
+        labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+      ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           color: AppColors.textPrimaryDark,
           fontSize: 32,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         headlineMedium: TextStyle(
           color: AppColors.textPrimaryDark,
           fontSize: 24,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.3,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         titleLarge: TextStyle(
           color: AppColors.textPrimaryDark,
           fontSize: 18,
           fontWeight: FontWeight.w600,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         titleMedium: TextStyle(
           color: AppColors.textPrimaryDark,
           fontSize: 16,
           fontWeight: FontWeight.w500,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         bodyLarge: TextStyle(
           color: AppColors.textPrimaryDark,
@@ -204,6 +231,7 @@ class AppTheme {
           color: AppColors.textPrimaryDark,
           fontSize: 14,
           fontWeight: FontWeight.w600,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
       ),
     );

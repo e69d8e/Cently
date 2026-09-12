@@ -255,7 +255,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.info_outline_rounded),
                 title: const Text('关于 分厘'),
-                subtitle: const Text('版本 1.0.2 · 本地安全存储'),
+                subtitle: const Text('版本 1.0.3 · 本地安全存储'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showAboutDialog(context),
               ),

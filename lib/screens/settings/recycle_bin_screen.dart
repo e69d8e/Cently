@@ -229,6 +229,7 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                       color: isExpense ? AppColors.expense : AppColors.income,
                     ),
                   ),
@@ -513,6 +514,7 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w600,
+                                              fontFeatures: const [FontFeature.tabularFigures()],
                                               color: remaining <= 3
                                                   ? AppColors.expense
                                                   : (isDark
@@ -559,6 +561,7 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
                                       color: isExpense ? AppColors.expense : AppColors.income,
                                     ),
                                   ),

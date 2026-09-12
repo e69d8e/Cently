@@ -413,6 +413,31 @@ class DatabaseHelper {
     return result.map((map) => TransactionRecord.fromMap(map)).toList();
   }
 
+  /// Retrieves total count of active (non-deleted) transactions across all time
+  Future<int> getTotalTransactionsCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM transactions WHERE deletedAt IS NULL',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Retrieves count of active (non-deleted) transactions for a specific month
+  Future<int> getTransactionsCountByMonth(DateTime month) async {
+    final db = await database;
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final startOfNextMonth = DateTime(month.year, month.month + 1, 1);
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM transactions WHERE deletedAt IS NULL AND timestamp >= ? AND timestamp < ?',
+      [
+        startOfMonth.millisecondsSinceEpoch,
+        startOfNextMonth.millisecondsSinceEpoch,
+      ],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   Future<int> countTransactionsByCategory(String categoryId) async {
     final db = await database;
     final result = await db.rawQuery(
@@ -422,15 +447,33 @@ class DatabaseHelper {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  Future<ImportSummary> importBackupData(Map<String, dynamic> data, {bool overwrite = false}) async {
+  Future<ImportSummary> importBackupData(
+    Map<String, dynamic> data, {
+    bool overwrite = false,
+    DateTime? targetMonth,
+  }) async {
     final db = await database;
     try {
       final batch = db.batch();
 
       if (overwrite) {
-        batch.delete('transactions');
-        batch.delete('preset_items');
-        batch.delete('categories');
+        if (targetMonth != null) {
+          // If targetMonth is provided (single-month overwrite), only delete transactions in that month
+          final startOfMonth = DateTime(targetMonth.year, targetMonth.month, 1);
+          final startOfNextMonth = DateTime(targetMonth.year, targetMonth.month + 1, 1);
+          batch.delete(
+            'transactions',
+            where: 'timestamp >= ? AND timestamp < ?',
+            whereArgs: [
+              startOfMonth.millisecondsSinceEpoch,
+              startOfNextMonth.millisecondsSinceEpoch,
+            ],
+          );
+        } else {
+          batch.delete('transactions');
+          batch.delete('preset_items');
+          batch.delete('categories');
+        }
       }
 
       int catCount = 0;

@@ -1,5 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/database_helper.dart';
@@ -503,29 +508,45 @@ class TransactionProvider extends ChangeNotifier {
 
   // ================= DATA EXPORT =================
 
-  Future<String> exportAsJson() async {
-    final allRecords = await _db.getAllTransactions();
+  /// Retrieves total count of active transactions in database across all time
+  Future<int> getTotalTransactionsCount() async {
+    return await _db.getTotalTransactionsCount();
+  }
+
+  /// Retrieves count of active transactions for a specific month
+  Future<int> getTransactionsCountByMonth(DateTime month) async {
+    return await _db.getTransactionsCountByMonth(month);
+  }
+
+  Future<String> exportAsJson({DateTime? month}) async {
+    final records = month == null
+        ? await _db.getAllTransactions()
+        : await _db.getTransactionsByMonth(month);
     final categories = await _db.getAllCategories();
     final presets = await _db.getAllPresetItems();
 
     final data = {
       'app': 'Cently',
-      'version': '1.0.2',
+      'version': '1.0.3',
       'exportTime': DateTime.now().toIso8601String(),
+      'exportScope': month == null ? 'all' : 'month',
+      if (month != null) 'targetMonth': '${month.year}-${month.month.toString().padLeft(2, '0')}',
       'categories': categories.map((c) => c.toMap()).toList(),
       'presetItems': presets.map((p) => p.toMap()).toList(),
-      'transactions': allRecords.map((t) => t.toMap()).toList(),
+      'transactions': records.map((t) => t.toMap()).toList(),
     };
 
     return const JsonEncoder.withIndent('  ').convert(data);
   }
 
-  Future<String> exportAsCsv() async {
-    final allRecords = await _db.getAllTransactions();
+  Future<String> exportAsCsv({DateTime? month}) async {
+    final records = month == null
+        ? await _db.getAllTransactions()
+        : await _db.getTransactionsByMonth(month);
     final buffer = StringBuffer();
     buffer.writeln('日期时间,收支类型,分类,名称,金额,备注');
 
-    for (final r in allRecords) {
+    for (final r in records) {
       final dateStr = CurrencyFormat.escapeCsvField(r.dateTime.toIso8601String());
       final typeStr = CurrencyFormat.escapeCsvField(r.type.displayName);
       final catStr = CurrencyFormat.escapeCsvField(r.categoryName);
@@ -536,6 +557,117 @@ class TransactionProvider extends ChangeNotifier {
     }
 
     return buffer.toString();
+  }
+
+  /// 生成规范的导出文件名，包含导出范围标识与精确到秒的时间戳后缀
+  static String generateExportFileName({
+    required String prefix,
+    required String extension,
+    DateTime? month,
+    DateTime? now,
+  }) {
+    final dt = now ?? DateTime.now();
+    final monthSuffix = month == null
+        ? 'all'
+        : '${month.year}${month.month.toString().padLeft(2, '0')}';
+    final datePart =
+        '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}';
+    final timePart =
+        '${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}${dt.second.toString().padLeft(2, '0')}';
+    final cleanExt = extension.startsWith('.') ? extension.substring(1) : extension;
+    return '${prefix}_${monthSuffix}_${datePart}_$timePart.$cleanExt';
+  }
+
+  /// 使用系统原生文件保存选择器保存 JSON 备份文件（Android 调用 SAF 存储访问框架，不会弹出分享菜单）
+  Future<Uri?> saveJsonFile({DateTime? month}) async {
+    final jsonContent = await exportAsJson(month: month);
+    final fileName = generateExportFileName(
+      prefix: 'cently_backup',
+      extension: 'json',
+      month: month,
+    );
+    final bytes = Uint8List.fromList(utf8.encode(jsonContent));
+    return await FilePicker.saveFile(
+      fileName: fileName,
+      bytes: bytes,
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      mimeType: 'application/json',
+    );
+  }
+
+  /// 使用系统原生文件保存选择器保存 CSV 文件（预置 UTF-8 BOM 确保 Excel 正常识别中文）
+  Future<Uri?> saveCsvFile({DateTime? month}) async {
+    final csvContent = await exportAsCsv(month: month);
+    final fileName = generateExportFileName(
+      prefix: 'cently_transactions',
+      extension: 'csv',
+      month: month,
+    );
+    final bom = [0xEF, 0xBB, 0xBF];
+    final bytes = Uint8List.fromList([...bom, ...utf8.encode(csvContent)]);
+    return await FilePicker.saveFile(
+      fileName: fileName,
+      bytes: bytes,
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+      mimeType: 'text/csv',
+    );
+  }
+
+  /// 调用系统分享面板分享 JSON 备份文件（带精确时间戳后缀）
+  Future<void> shareJsonFile({DateTime? month, Rect? sharePositionOrigin}) async {
+    final jsonContent = await exportAsJson(month: month);
+    final tempDir = await getTemporaryDirectory();
+    final fileName = generateExportFileName(
+      prefix: 'cently_backup',
+      extension: 'json',
+      month: month,
+    );
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsString(jsonContent);
+
+    final scopeLabel = month == null ? '全量' : '${month.year}年${month.month}月';
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'application/json', name: fileName)],
+        subject: 'Cently 记账数据备份 ($scopeLabel)',
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+  }
+
+  /// 调用系统分享面板分享 CSV 流水文件（带精确时间戳后缀）
+  Future<void> shareCsvFile({DateTime? month, Rect? sharePositionOrigin}) async {
+    final csvContent = await exportAsCsv(month: month);
+    final tempDir = await getTemporaryDirectory();
+    final fileName = generateExportFileName(
+      prefix: 'cently_transactions',
+      extension: 'csv',
+      month: month,
+    );
+    final file = File('${tempDir.path}/$fileName');
+    final bom = [0xEF, 0xBB, 0xBF];
+    await file.writeAsBytes([...bom, ...utf8.encode(csvContent)]);
+
+    final scopeLabel = month == null ? '全量' : '${month.year}年${month.month}月';
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'text/csv', name: fileName)],
+        subject: 'Cently 记账流水明细 ($scopeLabel)',
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+  }
+
+  /// 导出并保存 JSON 备份文件（向下兼容别名）
+  Future<void> exportJsonFile({DateTime? month, Rect? sharePositionOrigin}) async {
+    await saveJsonFile(month: month);
+  }
+
+  /// 导出并保存 CSV 文件（向下兼容别名）
+  Future<void> exportCsvFile({DateTime? month, Rect? sharePositionOrigin}) async {
+    await saveCsvFile(month: month);
   }
 
   BackupPreview parseBackupPreview(String jsonStr) {
@@ -576,10 +708,40 @@ class TransactionProvider extends ChangeNotifier {
         );
       }
 
+      String? exportScope = decoded['exportScope'] as String?;
+      String? targetMonth = decoded['targetMonth'] as String?;
+
+      // Auto-detect scope and targetMonth if not explicitly marked in metadata
+      if (transactions.isNotEmpty && (exportScope == null || targetMonth == null)) {
+        final Set<String> detectedMonths = {};
+        for (final item in transactions) {
+          if (item is Map) {
+            final ts = item['timestamp'];
+            if (ts is int) {
+              final d = DateTime.fromMillisecondsSinceEpoch(ts);
+              detectedMonths.add('${d.year}-${d.month.toString().padLeft(2, '0')}');
+            } else if (item['dateTime'] is String) {
+              final d = DateTime.tryParse(item['dateTime'] as String);
+              if (d != null) {
+                detectedMonths.add('${d.year}-${d.month.toString().padLeft(2, '0')}');
+              }
+            }
+          }
+        }
+        if (detectedMonths.length == 1) {
+          exportScope ??= 'month';
+          targetMonth ??= detectedMonths.first;
+        } else if (detectedMonths.length > 1) {
+          exportScope ??= 'all';
+        }
+      }
+
       return BackupPreview(
         app: decoded['app'] as String?,
         version: decoded['version'] as String?,
         exportTime: decoded['exportTime'] as String?,
+        exportScope: exportScope,
+        targetMonth: targetMonth,
         categoriesCount: categories.length,
         presetsCount: presets.length,
         transactionsCount: transactions.length,
@@ -609,7 +771,23 @@ class TransactionProvider extends ChangeNotifier {
       );
     }
 
-    final result = await _db.importBackupData(preview.rawData!, overwrite: overwrite);
+    DateTime? targetMonthDate;
+    if (preview.isSingleMonth && preview.targetMonth != null) {
+      final parts = preview.targetMonth!.split('-');
+      if (parts.length == 2) {
+        final year = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        if (year != null && month != null) {
+          targetMonthDate = DateTime(year, month);
+        }
+      }
+    }
+
+    final result = await _db.importBackupData(
+      preview.rawData!,
+      overwrite: overwrite,
+      targetMonth: targetMonthDate,
+    );
     if (result.isSuccess) {
       await loadCurrentMonth();
     }
@@ -626,6 +804,8 @@ class BackupPreview {
   final String? app;
   final String? version;
   final String? exportTime;
+  final String? exportScope; // 'all' or 'month'
+  final String? targetMonth; // e.g. '2026-08'
   final int categoriesCount;
   final int presetsCount;
   final int transactionsCount;
@@ -637,6 +817,8 @@ class BackupPreview {
     this.app,
     this.version,
     this.exportTime,
+    this.exportScope,
+    this.targetMonth,
     required this.categoriesCount,
     required this.presetsCount,
     required this.transactionsCount,
@@ -644,5 +826,7 @@ class BackupPreview {
     this.errorMessage,
     this.rawData,
   });
+
+  bool get isSingleMonth => exportScope == 'month' && targetMonth != null;
 }
 

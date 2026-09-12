@@ -63,6 +63,18 @@ class AppIcons {
     'favorite': Icons.favorite_rounded,
   };
 
+  static const Map<String, List<String>> iconCategories = {
+    '全部': [],
+    '餐饮': ['restaurant', 'coffee', 'fastfood', 'local_bar', 'bakery_dining', 'icecream'],
+    '交通': ['commute', 'directions_car', 'local_taxi', 'local_gas_station', 'flight', 'two_wheeler', 'pedal_bike'],
+    '购物': ['shopping_bag', 'shopping_cart', 'checkroom', 'devices', 'storefront'],
+    '居家': ['home', 'water_drop', 'bolt', 'wifi', 'cleaning_services'],
+    '娱乐': ['sports_esports', 'movie', 'fitness_center', 'pets', 'park', 'celebration'],
+    '医疗': ['local_hospital', 'medication', 'health_and_safety'],
+    '财务': ['work', 'account_balance', 'trending_up', 'savings', 'card_giftcard', 'redeem', 'attach_money', 'payments'],
+    '其他': ['category', 'more_horiz', 'description', 'favorite'],
+  };
+
   static IconData getIcon(String? iconKey) {
     if (iconKey == null || !iconMap.containsKey(iconKey)) {
       return Icons.category_rounded;

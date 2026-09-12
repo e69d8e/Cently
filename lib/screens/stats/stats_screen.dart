@@ -239,6 +239,7 @@ class _StatsSummaryBanner extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                   color: type == CategoryType.expense
                       ? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary)
                       : AppColors.income,
@@ -263,6 +264,7 @@ class _StatsSummaryBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                     color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                   ),
                 ),
@@ -376,6 +378,13 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
             final percentStr = (item.percentage * 100).toStringAsFixed(1);
             final isSelected = idx == _touchedIndex;
 
+            final rankColor = idx == 0
+                ? const Color(0xFFEAB308) // Gold
+                : (idx == 1
+                    ? const Color(0xFF94A3B8) // Silver
+                    : (idx == 2 ? const Color(0xFFD97706) : Colors.transparent));
+            final isTopThree = idx < 3;
+
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Material(
@@ -398,6 +407,23 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
                     ),
                     child: Row(
                       children: [
+                        // Rank Indicator
+                        Container(
+                          width: 24,
+                          alignment: Alignment.center,
+                          child: Text(
+                            '#${idx + 1}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isTopThree ? FontWeight.w700 : FontWeight.w500,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                              color: isTopThree
+                                  ? rankColor
+                                  : (isDark ? AppColors.textTertiaryDark : AppColors.textTertiary),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         CategoryIconWidget(
                           iconKey: cat?.iconKey ?? 'category',
                           color: color,
@@ -427,6 +453,7 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
                                       color: isSelected ? color : null,
                                     ),
                                   ),
@@ -441,6 +468,7 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
                                     '${item.count} 笔记录',
                                     style: TextStyle(
                                       fontSize: 11,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
                                       color: isDark
                                           ? AppColors.textTertiaryDark
                                           : AppColors.textTertiary,
@@ -451,6 +479,7 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
                                       color: color,
                                     ),
                                   ),
@@ -458,7 +487,7 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
                               ),
                               const SizedBox(height: 6),
                               ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
+                                borderRadius: BorderRadius.circular(4),
                                 child: LinearProgressIndicator(
                                   value: item.percentage.clamp(0.0, 1.0),
                                   backgroundColor: isDark
@@ -467,7 +496,7 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     color,
                                   ),
-                                  minHeight: 3.5,
+                                  minHeight: 5,
                                 ),
                               ),
                             ],
@@ -505,78 +534,59 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
 
   Widget _buildCenterBadge() {
     final isDark = widget.isDark;
+    Widget content;
+
     if (_touchedIndex >= 0 && _touchedIndex < widget.stats.length) {
       final selected = widget.stats[_touchedIndex];
       final cat = widget.catProvider.getCategoryById(selected.categoryId);
       final color = cat?.color ?? AppColors.primary;
       final percentStr = (selected.percentage * 100).toStringAsFixed(1);
 
-      return GestureDetector(
-        onTap: () {
-          setState(() {
-            _touchedIndex = -1;
-          });
-        },
-        child: Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      content = Column(
+        key: ValueKey('selected_${selected.categoryId}'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            selected.categoryName,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                selected.categoryName,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? AppColors.textPrimaryDark
-                      : AppColors.textPrimary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                CurrencyFormat.format(selected.amount),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 1),
-              Text(
-                '$percentStr%',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? AppColors.textTertiaryDark
-                      : AppColors.textTertiary,
-                ),
-              ),
-            ],
+          const SizedBox(height: 2),
+          Text(
+            CurrencyFormat.format(selected.amount),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
+          const SizedBox(height: 1),
+          Text(
+            '$percentStr%',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: isDark
+                  ? AppColors.textTertiaryDark
+                  : AppColors.textTertiary,
+            ),
+          ),
+        ],
       );
-    }
-
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-      ),
-      alignment: Alignment.center,
-      child: Column(
+    } else {
+      content = Column(
+        key: const ValueKey('total_badge'),
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
@@ -596,6 +606,7 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
                 color: isDark
                     ? AppColors.textPrimaryDark
                     : AppColors.textPrimary,
@@ -615,6 +626,36 @@ class _CategoryBreakdownCardState extends State<_CategoryBreakdownCard> {
             ),
           ),
         ],
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        if (_touchedIndex != -1) {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _touchedIndex = -1;
+          });
+        }
+      },
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: content,
+        ),
       ),
     );
   }
@@ -674,6 +715,13 @@ class _TopItemsCard extends StatelessWidget {
   }
 
   Widget _buildTopItemRow(ItemStat item, int idx) {
+    final rankBg = idx == 0
+        ? const Color(0xFFEAB308)
+        : (idx == 1
+            ? const Color(0xFF94A3B8)
+            : (idx == 2 ? const Color(0xFFD97706) : (isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight)));
+    final rankTextCol = idx < 3 ? Colors.white : AppColors.textSecondary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -682,9 +730,7 @@ class _TopItemsCard extends StatelessWidget {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: idx < 3
-                  ? AppColors.primary
-                  : (isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight),
+              color: rankBg,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -692,8 +738,9 @@ class _TopItemsCard extends StatelessWidget {
                 '${idx + 1}',
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: idx < 3 ? Colors.white : AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: rankTextCol,
                 ),
               ),
             ),
@@ -714,6 +761,7 @@ class _TopItemsCard extends StatelessWidget {
                   '${item.categoryName} · 共 ${item.count} 次',
                   style: TextStyle(
                     fontSize: 11,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                     color: isDark
                         ? AppColors.textTertiaryDark
                         : AppColors.textTertiary,
@@ -727,6 +775,7 @@ class _TopItemsCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
         ],

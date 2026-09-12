@@ -168,12 +168,34 @@ class _CategoryManageScreenState extends State<CategoryManageScreen>
                 size: 42,
                 iconSize: 22,
               ),
-              title: Text(
-                cat.name,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              title: Row(
+                children: [
+                  Text(
+                    cat.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${presets.length} 个预设',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               subtitle: Text(
-                '${presets.length} 个预设名称：${presets.take(3).map((p) => p.name).join('、')}${presets.length > 3 ? '...' : ''}',
+                presets.isEmpty
+                    ? '暂无预设名称'
+                    : presets.take(3).map((p) => p.name).join('、') + (presets.length > 3 ? '...' : ''),
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,

@@ -10,6 +10,7 @@ import 'package:cently/providers/transaction_provider.dart';
 import 'package:cently/screens/home/home_screen.dart';
 import 'package:cently/screens/main_navigation_screen.dart';
 import 'package:cently/screens/record/add_record_screen.dart';
+import 'package:cently/screens/settings/data_backup_screen.dart';
 import 'package:cently/screens/settings/recycle_bin_screen.dart';
 import 'package:cently/screens/stats/stats_screen.dart';
 import 'package:cently/theme/app_colors.dart';
@@ -722,6 +723,54 @@ void main() {
 
     expect(find.byType(AddRecordScreen), findsNothing);
     expect(find.text('Edit Record'), findsOneWidget);
+  });
+
+  testWidgets('DataBackupScreen renders Export and Import tabs without overflow on mobile constraints', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(375 * 2.0, 667 * 2.0);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CategoryProvider()),
+          ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ],
+        child: const MaterialApp(
+          home: DataBackupScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Export Tab
+    expect(find.text('导出备份'), findsOneWidget);
+    expect(find.text('保存文件'), findsNWidgets(2)); // JSON and CSV
+    expect(find.text('复制备份'), findsOneWidget);
+    expect(find.text('复制表格'), findsOneWidget);
+
+    // Switch to Import Tab
+    await tester.tap(find.text('导入恢复'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('备份数据来源'), findsOneWidget);
+    expect(find.text('选取文件'), findsOneWidget);
+    expect(find.text('剪贴板粘贴'), findsOneWidget);
+
+    // Enter text to trigger the '清空内容' button
+    await tester.enterText(find.byType(TextField), '{"app":"Cently"}');
+    await tester.pumpAndSettle();
+
+    expect(find.text('清空内容'), findsOneWidget);
+
+    // Tap '清空内容'
+    await tester.tap(find.text('清空内容'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('清空内容'), findsNothing);
   });
 }
 

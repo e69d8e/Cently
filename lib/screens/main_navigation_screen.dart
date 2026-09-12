@@ -62,10 +62,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           HapticFeedback.mediumImpact();
           AddRecordScreen.show(context);
         },
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: const CircleBorder(),
+        backgroundColor: isDark ? const Color(0xFFF8FAFC) : AppColors.primary,
+        foregroundColor: isDark ? AppColors.primary : Colors.white,
+        elevation: isDark ? 4 : 3,
+        shape: CircleBorder(
+          side: BorderSide(
+            color: isDark ? Colors.white70 : Colors.white24,
+            width: 1.5,
+          ),
+        ),
         child: const Icon(Icons.add_rounded, size: 30),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -74,6 +79,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         notchMargin: 8,
         color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         elevation: 0,
+        clipBehavior: Clip.antiAlias,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Center(
           child: ConstrainedBox(
@@ -112,16 +118,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return InkWell(
       onTap: () => _onTabSelected(index),
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isSelected ? selectedIcon : unselectedIcon,
-              color: color,
-              size: 22,
+            AnimatedScale(
+              scale: isSelected ? 1.08 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              child: Icon(
+                isSelected ? selectedIcon : unselectedIcon,
+                color: color,
+                size: 22,
+              ),
             ),
             const SizedBox(height: 2),
             Text(

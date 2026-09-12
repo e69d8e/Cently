@@ -50,6 +50,9 @@ class NumericKeyboard extends StatelessWidget {
     final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
     final actionBg = isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight;
 
+    final isPlusActive = amountText.endsWith('+');
+    final isMinusActive = amountText.endsWith('-');
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -66,7 +69,13 @@ class NumericKeyboard extends StatelessWidget {
                 _buildKey('1', keyBg, keyBorder, textColor),
                 _buildKey('2', keyBg, keyBorder, textColor),
                 _buildKey('3', keyBg, keyBorder, textColor),
-                _buildKey('+', keyBg, keyBorder, accentColor, isSpecial: true),
+                _buildKey(
+                  '+',
+                  isPlusActive ? accentColor.withValues(alpha: isDark ? 0.3 : 0.15) : keyBg,
+                  isPlusActive ? accentColor : keyBorder,
+                  accentColor,
+                  isSpecial: true,
+                ),
               ],
             ),
             Row(
@@ -74,7 +83,13 @@ class NumericKeyboard extends StatelessWidget {
                 _buildKey('4', keyBg, keyBorder, textColor),
                 _buildKey('5', keyBg, keyBorder, textColor),
                 _buildKey('6', keyBg, keyBorder, textColor),
-                _buildKey('-', keyBg, keyBorder, accentColor, isSpecial: true),
+                _buildKey(
+                  '-',
+                  isMinusActive ? accentColor.withValues(alpha: isDark ? 0.3 : 0.15) : keyBg,
+                  isMinusActive ? accentColor : keyBorder,
+                  accentColor,
+                  isSpecial: true,
+                ),
               ],
             ),
             Row(
@@ -155,6 +170,7 @@ class NumericKeyboard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: isSpecial ? 20 : 22,
                         fontWeight: isSpecial ? FontWeight.w600 : FontWeight.w500,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                         color: textCol,
                       ),
                     ),

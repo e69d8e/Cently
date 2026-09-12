@@ -19,10 +19,13 @@ class AppColors {
   // Financial Accents (Refined & Muted)
   static const Color expense = Color(0xFFE11D48); // Rose / Terracotta (支出)
   static const Color expenseBg = Color(0xFFFFF1F2);
+  static const Color expenseBgDark = Color(0xFF2E1318);
   static const Color income = Color(0xFF059669); // Emerald / Sage (收入)
   static const Color incomeBg = Color(0xFFECFDF5);
+  static const Color incomeBgDark = Color(0xFF082B20);
   static const Color balance = Color(0xFF2563EB); // Royal Blue
   static const Color balanceBg = Color(0xFFEFF6FF);
+  static const Color balanceBgDark = Color(0xFF0E223D);
 
   // Text
   static const Color textPrimary = Color(0xFF0F172A);

@@ -67,6 +67,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   final FocusNode _keyboardFocusNode = FocusNode();
   String? _cachedPresetCategoryId;
   List<PresetItem> _cachedSortedPresets = const [];
+  bool _isCategoryGridExpanded = false;
 
   @override
   void initState() {
@@ -830,6 +831,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                         style: TextStyle(
                           fontSize: 42,
                           fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                           color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                           letterSpacing: -1,
                         ),
@@ -841,6 +843,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w600,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                             color: accentColor.withValues(alpha: 0.8),
                           ),
                         ),
@@ -861,9 +864,10 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       return const SizedBox(height: 60);
     }
 
-    return Container(
-      height: 88,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      height: _isCategoryGridExpanded ? 165 : 88,
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         border: Border(
@@ -873,53 +877,111 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           ),
         ),
       ),
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          final cat = categories[index];
-          final isSelected = _selectedCategory?.id == cat.id;
-
-          return GestureDetector(
-            onTap: () => _onCategorySelected(cat),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: isSelected ? cat.color : cat.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: isSelected
-                        ? Border.all(color: cat.color, width: 2)
-                        : null,
-                  ),
-                  child: Center(
-                    child: Icon(
-                      AppIcons.getIcon(cat.iconKey),
-                      color: isSelected ? Colors.white : cat.color,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  cat.name,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary)
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ],
+      child: Stack(
+        children: [
+          if (!_isCategoryGridExpanded)
+            ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 6, 56, 6),
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 14),
+              itemBuilder: (context, index) => _buildCategoryItem(categories[index], isDark),
+            )
+          else
+            GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 10, 56, 10),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: categories.length,
+              itemBuilder: (context, index) => _buildCategoryItem(categories[index], isDark),
             ),
-          );
-        },
+          // Expand / Collapse Category Button
+          Positioned(
+            right: 8,
+            top: 10,
+            child: Material(
+              color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
+              borderRadius: BorderRadius.circular(10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _isCategoryGridExpanded = !_isCategoryGridExpanded;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Icon(
+                    _isCategoryGridExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.grid_view_rounded,
+                    size: 18,
+                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryItem(Category cat, bool isDark) {
+    final isSelected = _selectedCategory?.id == cat.id;
+    return GestureDetector(
+      onTap: () => _onCategorySelected(cat),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isSelected ? cat.color : cat.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: isSelected
+                  ? Border.all(color: isDark ? Colors.white : cat.color, width: 2)
+                  : null,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: cat.color.withValues(alpha: 0.35),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: Icon(
+                AppIcons.getIcon(cat.iconKey),
+                color: isSelected ? Colors.white : cat.color,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            cat.name,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: isSelected
+                  ? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary)
+                  : AppColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -976,37 +1038,44 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Preset Chips Wrap
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ...presets.map((item) {
-                final isSelected = _nameController.text == item.name;
-                return ChoiceChip(
-                  label: Text(item.name),
-                  selected: isSelected,
-                  onSelected: (_) => _onPresetChipTapped(item),
-                  selectedColor: isDark ? AppColors.primaryLight : AppColors.primary,
-                  labelStyle: TextStyle(
-                    fontSize: 13,
-                    color: isSelected
-                        ? Colors.white
-                        : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                  backgroundColor: isDark
-                      ? AppColors.surfaceMutedDark
-                      : AppColors.surfaceMutedLight,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide.none,
-                  ),
-                  showCheckmark: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                );
-              }),
-            ],
+          // Preset Chips Animated Wrap
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Wrap(
+              key: ValueKey(_selectedCategory?.id ?? 'none'),
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...presets.map((item) {
+                  final isSelected = _nameController.text == item.name;
+                  return ChoiceChip(
+                    label: Text(item.name),
+                    selected: isSelected,
+                    onSelected: (_) => _onPresetChipTapped(item),
+                    selectedColor: isDark ? AppColors.primaryLight : AppColors.primary,
+                    labelStyle: TextStyle(
+                      fontSize: 13,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                    backgroundColor: isDark
+                        ? AppColors.surfaceMutedDark
+                        : AppColors.surfaceMutedLight,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: isSelected
+                          ? BorderSide(color: isDark ? Colors.white54 : AppColors.primary, width: 1)
+                          : BorderSide.none,
+                    ),
+                    showCheckmark: isSelected,
+                    checkmarkColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  );
+                }),
+              ],
+            ),
           ),
 
           const SizedBox(height: 14),

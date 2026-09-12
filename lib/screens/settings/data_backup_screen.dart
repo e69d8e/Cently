@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,10 @@ import 'package:provider/provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/date_format_helper.dart';
+import '../../widgets/month_picker_dialog.dart';
+
+enum ExportScope { all, month }
 
 class DataBackupScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -31,6 +37,11 @@ class _DataBackupScreenState extends State<DataBackupScreen>
   bool _overwriteMode = false;
   bool _isImporting = false;
 
+  ExportScope _exportScope = ExportScope.all;
+  DateTime _selectedExportMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  int? _totalTransactionsCount;
+  int? _monthTransactionsCount;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +50,19 @@ class _DataBackupScreenState extends State<DataBackupScreen>
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
+    _loadCounts();
+  }
+
+  Future<void> _loadCounts() async {
+    final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+    final total = await txProvider.getTotalTransactionsCount();
+    final monthCount = await txProvider.getTransactionsCountByMonth(_selectedExportMonth);
+    if (mounted) {
+      setState(() {
+        _totalTransactionsCount = total;
+        _monthTransactionsCount = monthCount;
+      });
+    }
   }
 
   @override
@@ -74,11 +98,45 @@ class _DataBackupScreenState extends State<DataBackupScreen>
     }
   }
 
+  Future<void> _pickJsonFile() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (file != null) {
+        final bytes = await file.readAsBytes();
+        final content = utf8.decode(bytes);
+
+        if (content.trim().isNotEmpty) {
+          setState(() {
+            _importTextController.text = content;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('已载入文件「${file.name}」'),
+                duration: const Duration(milliseconds: 1500),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('读取备份文件失败: $e')),
+        );
+      }
+    }
+  }
+
   void _executeImport() async {
     final text = _importTextController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先粘贴或输入 JSON 备份数据')),
+        const SnackBar(content: Text('请先粘贴或选取 JSON 备份数据')),
       );
       return;
     }
@@ -95,11 +153,17 @@ class _DataBackupScreenState extends State<DataBackupScreen>
     }
 
     if (_overwriteMode) {
+      final isSingle = preview.isSingleMonth && preview.targetMonth != null;
+      final scopeTitle = isSingle ? '「${preview.targetMonth}」单月数据' : '完整全量数据';
+      final scopeDetail = isSingle
+          ? '您选择了「完全覆盖模式」。检测到此备份为 $scopeTitle，系统将仅清空并覆盖该月份的账单流水，其他月份历史记录与分类配置将完整保留。'
+          : '您选择了「完全覆盖模式」，这将清除当前设备中的所有分类、预设名称和记账记录，并完全恢复为备份内容。此操作无法撤销！';
+
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('确认覆盖现有数据？'),
-          content: const Text('您选择了「完全覆盖模式」，这将清除当前设备中的所有分类、预设名称和记账记录，并完全恢复为备份内容。此操作无法撤销！'),
+          title: Text('确认覆盖$scopeTitle？'),
+          content: Text(scopeDetail),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -122,6 +186,7 @@ class _DataBackupScreenState extends State<DataBackupScreen>
 
     final result = await txProvider.importFromJson(text, overwrite: _overwriteMode);
     await catProvider.loadData();
+    await _loadCounts();
 
     setState(() {
       _isImporting = false;
@@ -130,6 +195,7 @@ class _DataBackupScreenState extends State<DataBackupScreen>
     if (!mounted) return;
 
     if (result.isSuccess) {
+      final isSingle = preview.isSingleMonth && preview.targetMonth != null;
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -147,9 +213,13 @@ class _DataBackupScreenState extends State<DataBackupScreen>
               Text('• 记账流水：${result.transactionsCount} 条'),
               Text('• 分类类型：${result.categoriesCount} 个'),
               Text('• 预设名称：${result.presetsCount} 个'),
+              if (isSingle)
+                Text('• 备份范围：${preview.targetMonth} (单月数据)'),
               const SizedBox(height: 10),
               Text(
-                _overwriteMode ? '数据已全部覆盖还原。' : '数据已成功合并追加。',
+                _overwriteMode
+                    ? (isSingle ? '已覆盖恢复 ${preview.targetMonth} 流水，其他月份已保留。' : '数据已全部覆盖还原。')
+                    : '数据已成功合并追加。',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
@@ -173,6 +243,12 @@ class _DataBackupScreenState extends State<DataBackupScreen>
   }
 
   void _showPreviewDialog(String title, String content) {
+    const int maxDisplayChars = 15000;
+    final bool isTruncated = content.length > maxDisplayChars;
+    final String displayContent = isTruncated
+        ? '${content.substring(0, maxDisplayChars)}\n\n...[数据量较多已截断预览，共计 ${content.length} 字符。点击下方「复制内容」将复制完整数据]...'
+        : content;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -182,7 +258,7 @@ class _DataBackupScreenState extends State<DataBackupScreen>
           height: 280,
           child: SingleChildScrollView(
             child: SelectableText(
-              content,
+              displayContent,
               style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
             ),
           ),
@@ -199,7 +275,7 @@ class _DataBackupScreenState extends State<DataBackupScreen>
               Clipboard.setData(ClipboardData(text: content));
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已复制到剪贴板')),
+                const SnackBar(content: Text('已复制完整内容到剪贴板')),
               );
             },
           ),
@@ -243,10 +319,80 @@ class _DataBackupScreenState extends State<DataBackupScreen>
     final catProvider = Provider.of<CategoryProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
 
+    final isMonthScope = _exportScope == ExportScope.month;
+    final targetMonth = isMonthScope ? _selectedExportMonth : null;
+    final currentTxCount = isMonthScope ? _monthTransactionsCount : _totalTransactionsCount;
+    final countLabel = isMonthScope ? '单月流水' : '全部流水';
+    final scopeDesc = isMonthScope
+        ? '${DateFormatHelper.formatMonth(_selectedExportMonth)} 流水'
+        : '全量历史记录';
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // JSON Full Backup Card
+        // 1. Export Scope Selector Card
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '导出范围设置',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                    if (isMonthScope)
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () async {
+                          final picked = await MonthPickerDialog.show(context, _selectedExportMonth);
+                          if (picked != null) {
+                            setState(() => _selectedExportMonth = picked);
+                            _loadCounts();
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                        label: Text(
+                          DateFormatHelper.formatMonth(_selectedExportMonth),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<ExportScope>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ExportScope.all,
+                      label: Text('全部历史数据'),
+                      icon: Icon(Icons.all_inclusive_rounded, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: ExportScope.month,
+                      label: Text('指定单月数据'),
+                      icon: Icon(Icons.date_range_rounded, size: 16),
+                    ),
+                  ],
+                  selected: {_exportScope},
+                  onSelectionChanged: (set) {
+                    setState(() => _exportScope = set.first);
+                    _loadCounts();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // 2. JSON Full Backup Card
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -264,18 +410,18 @@ class _DataBackupScreenState extends State<DataBackupScreen>
                       child: const Icon(Icons.backup_rounded, color: AppColors.primary, size: 24),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '完整数据备份 (JSON)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                            isMonthScope ? '单月数据备份 (JSON)' : '完整数据备份 (JSON)',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            '包含所有分类、预设名称与记账流水',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            isMonthScope ? '包含分类配置与指定月份记账流水' : '包含所有分类、预设名称与全部流水记录',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -294,7 +440,7 @@ class _DataBackupScreenState extends State<DataBackupScreen>
                     children: [
                       _buildStatBadge('分类数', '${catProvider.categories.length} 个'),
                       _buildStatBadge('预设名称', '${catProvider.presetItemsMap.values.fold(0, (sum, l) => sum + l.length)} 个'),
-                      _buildStatBadge('流水记录', '${txProvider.monthRecords.length} 笔 (当月)'),
+                      _buildStatBadge(countLabel, currentTxCount != null ? '$currentTxCount 笔' : '...'),
                     ],
                   ),
                 ),
@@ -302,31 +448,89 @@ class _DataBackupScreenState extends State<DataBackupScreen>
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text('查看数据'),
+                      flex: 5,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.save_alt_rounded, size: 16),
+                        label: const Text('保存文件'),
                         onPressed: () async {
-                          final json = await txProvider.exportAsJson();
-                          if (mounted) _showPreviewDialog('JSON 备份内容', json);
+                          try {
+                            final uri = await txProvider.saveJsonFile(month: targetMonth);
+                            if (uri != null && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('已成功保存 JSON 备份文件'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('保存文件失败: $e')),
+                              );
+                            }
+                          }
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                      flex: 5,
+                      child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        ),
                         icon: const Icon(Icons.copy_rounded, size: 16),
                         label: const Text('复制备份'),
                         onPressed: () async {
-                          final json = await txProvider.exportAsJson();
+                          final json = await txProvider.exportAsJson(month: targetMonth);
                           await Clipboard.setData(ClipboardData(text: json));
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已复制完整 JSON 备份到剪贴板')),
+                              SnackBar(
+                                content: Text(isMonthScope ? '已复制单月 JSON 备份到剪贴板' : '已复制完整 JSON 备份到剪贴板'),
+                              ),
                             );
                           }
                         },
                       ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton.outlined(
+                      tooltip: '系统分享',
+                      style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(36, 36),
+                      ),
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      onPressed: () async {
+                        try {
+                          await txProvider.shareJsonFile(month: targetMonth);
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('分享失败: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton.outlined(
+                      tooltip: '预览数据',
+                      style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(36, 36),
+                      ),
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      onPressed: () async {
+                        final json = await txProvider.exportAsJson(month: targetMonth);
+                        if (mounted) _showPreviewDialog('JSON 备份内容', json);
+                      },
                     ),
                   ],
                 ),
@@ -337,7 +541,7 @@ class _DataBackupScreenState extends State<DataBackupScreen>
 
         const SizedBox(height: 16),
 
-        // CSV Export Card
+        // 3. CSV Export Card
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -355,18 +559,18 @@ class _DataBackupScreenState extends State<DataBackupScreen>
                       child: const Icon(Icons.table_chart_rounded, color: AppColors.income, size: 24),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Excel / 表格明细 (CSV)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                            isMonthScope ? '单月表格明细 (CSV)' : 'Excel / 表格明细 (CSV)',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            '导出格式化流水，支持在 Excel / Numbers 打开',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            isMonthScope ? '导出选定月份明细，支持在 Excel / Numbers 打开' : '导出全量历史流水，支持在 Excel / Numbers 打开',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -374,34 +578,107 @@ class _DataBackupScreenState extends State<DataBackupScreen>
                   ],
                 ),
                 const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatBadge('导出范围', scopeDesc),
+                      _buildStatBadge('流水笔数', currentTxCount != null ? '$currentTxCount 笔' : '...'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text('查看表格'),
+                      flex: 5,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.income,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.save_alt_rounded, size: 16),
+                        label: const Text('保存文件'),
                         onPressed: () async {
-                          final csv = await txProvider.exportAsCsv();
-                          if (mounted) _showPreviewDialog('CSV 表格明细', csv);
+                          try {
+                            final uri = await txProvider.saveCsvFile(month: targetMonth);
+                            if (uri != null && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('已成功保存 CSV 表格文件'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('保存文件失败: $e')),
+                              );
+                            }
+                          }
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: AppColors.income),
+                      flex: 5,
+                      child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        ),
                         icon: const Icon(Icons.copy_rounded, size: 16),
                         label: const Text('复制表格'),
                         onPressed: () async {
-                          final csv = await txProvider.exportAsCsv();
+                          final csv = await txProvider.exportAsCsv(month: targetMonth);
                           await Clipboard.setData(ClipboardData(text: csv));
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已复制 CSV 表格数据到剪贴板')),
+                              SnackBar(
+                                content: Text(isMonthScope ? '已复制单月 CSV 表格到剪贴板' : '已复制 CSV 表格数据到剪贴板'),
+                              ),
                             );
                           }
                         },
                       ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton.outlined(
+                      tooltip: '系统分享',
+                      style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(36, 36),
+                      ),
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      onPressed: () async {
+                        try {
+                          await txProvider.shareCsvFile(month: targetMonth);
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('分享失败: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton.outlined(
+                      tooltip: '预览表格',
+                      style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(36, 36),
+                      ),
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      onPressed: () async {
+                        final csv = await txProvider.exportAsCsv(month: targetMonth);
+                        if (mounted) _showPreviewDialog('CSV 表格明细', csv);
+                      },
                     ),
                   ],
                 ),
@@ -433,36 +710,55 @@ class _DataBackupScreenState extends State<DataBackupScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Paste area
+        // Source Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              '粘贴 JSON 备份文本',
+              '备份数据来源',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            Row(
-              children: [
-                if (_importTextController.text.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _importTextController.clear();
-                      });
-                    },
-                    icon: const Icon(Icons.clear, size: 15),
-                    label: const Text('清空'),
-                  ),
-                FilledButton.tonalIcon(
-                  onPressed: _pasteFromClipboard,
-                  icon: const Icon(Icons.content_paste_rounded, size: 15),
-                  label: const Text('从剪贴板粘贴'),
+            if (_importTextController.text.isNotEmpty)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 ),
-              ],
-            ),
+                onPressed: () => setState(() => _importTextController.clear()),
+                icon: const Icon(Icons.clear, size: 14),
+                label: const Text('清空内容'),
+              ),
           ],
         ),
         const SizedBox(height: 10),
+
+        // Source Action Buttons Row: File Picker + Clipboard
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                onPressed: _pickJsonFile,
+                icon: const Icon(Icons.file_open_outlined, size: 16),
+                label: const Text('选取文件'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                onPressed: _pasteFromClipboard,
+                icon: const Icon(Icons.content_paste_rounded, size: 16),
+                label: const Text('剪贴板粘贴'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
         TextField(
           controller: _importTextController,
@@ -515,11 +811,18 @@ class _DataBackupScreenState extends State<DataBackupScreen>
                   ),
                   const SizedBox(height: 8),
                   if (preview.isValid) ...[
+                    if (preview.isSingleMonth && preview.targetMonth != null)
+                      Text('• 备份类型: 单月备份 (${preview.targetMonth})',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.income))
+                    else
+                      const Text('• 备份类型: 全量历史备份',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     Text('• 包含分类: ${preview.categoriesCount} 个', style: const TextStyle(fontSize: 13)),
                     Text('• 包含预设名称: ${preview.presetsCount} 个', style: const TextStyle(fontSize: 13)),
                     Text('• 包含记账流水: ${preview.transactionsCount} 笔', style: const TextStyle(fontSize: 13)),
                     if (preview.exportTime != null)
-                      Text('• 备份生成时间: ${preview.exportTime}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      Text('• 备份生成时间: ${preview.exportTime}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ] else ...[
                     Text(
                       preview.errorMessage ?? '无法识别有效备份内容',
