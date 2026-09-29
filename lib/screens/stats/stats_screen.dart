@@ -247,29 +247,28 @@ class _StatsSummaryBanner extends StatelessWidget {
               ),
             ],
           ),
-          if (type == CategoryType.expense)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '日均支出',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '日均${type.displayName}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  CurrencyFormat.format(dailyAvg),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                  ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                CurrencyFormat.format(dailyAvg),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
     ));
@@ -706,7 +705,7 @@ class _TopItemsCard extends StatelessWidget {
           children: [
             for (int idx = 0; idx < topItems.length; idx++) ...[
               if (idx > 0) const Divider(),
-              _buildTopItemRow(topItems[idx], idx),
+              _buildTopItemRow(context, topItems[idx], idx),
             ],
           ],
         ),
@@ -714,7 +713,7 @@ class _TopItemsCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTopItemRow(ItemStat item, int idx) {
+  Widget _buildTopItemRow(BuildContext context, ItemStat item, int idx) {
     final rankBg = idx == 0
         ? const Color(0xFFEAB308)
         : (idx == 1
@@ -722,63 +721,80 @@ class _TopItemsCard extends StatelessWidget {
             : (idx == 2 ? const Color(0xFFD97706) : (isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight)));
     final rankTextCol = idx < 3 ? Colors.white : AppColors.textSecondary;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: rankBg,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '${idx + 1}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  color: rankTextCol,
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        // 跳转到「明细」Tab 并以项目名称发起搜索，快速回看该项目的每一笔记录
+        final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+        txProvider.setFilterCategory(null);
+        txProvider.setSearchQuery(item.name);
+        MainNavigationScreen.switchToTab(context, 0);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: rankBg,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  '${idx + 1}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: rankTextCol,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                Text(
-                  '${item.categoryName} · 共 ${item.count} 次',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    color: isDark
-                        ? AppColors.textTertiaryDark
-                        : AppColors.textTertiary,
+                  Text(
+                    '${item.categoryName} · 共 ${item.count} 次',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      color: isDark
+                          ? AppColors.textTertiaryDark
+                          : AppColors.textTertiary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Text(
-            CurrencyFormat.format(item.amount),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
+            Text(
+              CurrencyFormat.format(item.amount),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 2),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiary,
+            ),
+          ],
+        ),
       ),
     );
   }

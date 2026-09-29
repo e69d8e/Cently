@@ -154,6 +154,36 @@ void main() {
       expect(provider.filteredRecords.length, 4);
     });
 
+    test('Search query matches amounts in both fixed and comma formats', () {
+      // 1. Integer amount (tx_2 = 68.0)
+      provider.setSearchQuery('68');
+      expect(provider.filteredRecords.length, 1);
+      expect(provider.filteredRecords.first.id, 'tx_2');
+
+      // 2. Decimal amount (tx_1 = 35.0 → "35.00")
+      provider.setSearchQuery('35.0');
+      expect(provider.filteredRecords.length, 1);
+      expect(provider.filteredRecords.first.id, 'tx_1');
+
+      // 3. Comma-formatted large amount (tx_3 = 5000.0 → "5,000")
+      provider.setSearchQuery('5,000');
+      expect(provider.filteredRecords.length, 1);
+      expect(provider.filteredRecords.first.id, 'tx_3');
+
+      // 4. Plain digits also match the same record
+      provider.setSearchQuery('5000');
+      expect(provider.filteredRecords.length, 1);
+      expect(provider.filteredRecords.first.id, 'tx_3');
+
+      // 5. Single digit substring hits every record containing "5" in amount
+      provider.setSearchQuery('5');
+      final ids = provider.filteredRecords.map((r) => r.id).toSet();
+      expect(ids, {'tx_1', 'tx_3', 'tx_4'});
+
+      provider.setSearchQuery('');
+      expect(provider.filteredRecords.length, 4);
+    });
+
     test('Category filtering and combination with day filter', () {
       final month = provider.selectedMonth;
       final day15 = DateTime(month.year, month.month, 15);

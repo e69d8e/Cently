@@ -27,6 +27,10 @@ class AppColors {
   static const Color balanceBg = Color(0xFFEFF6FF);
   static const Color balanceBgDark = Color(0xFF0E223D);
 
+  // Search keyword highlight (applied to matched text in result lists)
+  static const Color searchHighlight = Color(0xFF2563EB); // Royal Blue
+  static const Color searchHighlightDark = Color(0xFF7CB0FF); // Softer blue for dark surfaces
+
   // Text
   static const Color textPrimary = Color(0xFF0F172A);
   static const Color textSecondary = Color(0xFF64748B);

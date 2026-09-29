@@ -175,7 +175,11 @@ class TransactionProvider extends ChangeNotifier {
         final nameMatch = r.name.toLowerCase().contains(normalizedQuery);
         final catMatch = r.categoryName.toLowerCase().contains(normalizedQuery);
         final remarkMatch = r.remark?.toLowerCase().contains(normalizedQuery) ?? false;
-        if (!nameMatch && !catMatch && !remarkMatch) {
+        // 金额匹配：同时覆盖千分位格式 (1,000.50) 与两位小数格式 (1000.50)
+        final compactAmount = CurrencyFormat.formatCompact(r.amount, showSymbol: false);
+        final fixedAmount = r.amount.toStringAsFixed(2);
+        final amountMatch = compactAmount.contains(normalizedQuery) || fixedAmount.contains(normalizedQuery);
+        if (!nameMatch && !catMatch && !remarkMatch && !amountMatch) {
           continue;
         }
       }
@@ -408,7 +412,9 @@ class TransactionProvider extends ChangeNotifier {
 
   // ================= CRUD =================
 
-  Future<void> addTransaction({
+  /// 新增一笔账单；返回落库后的完整记录（含生成的唯一 ID），
+  /// 便于调用方做保存反馈与撤销。
+  Future<TransactionRecord> addTransaction({
     required double amount,
     required CategoryType type,
     required String categoryId,
@@ -439,6 +445,7 @@ class TransactionProvider extends ChangeNotifier {
       _selectedMonth = DateTime(dateTime.year, dateTime.month);
       await loadCurrentMonth();
     }
+    return record;
   }
 
   Future<void> updateTransaction(TransactionRecord record) async {
@@ -527,7 +534,7 @@ class TransactionProvider extends ChangeNotifier {
 
     final data = {
       'app': 'Cently',
-      'version': '1.0.3',
+      'version': '1.0.4',
       'exportTime': DateTime.now().toIso8601String(),
       'exportScope': month == null ? 'all' : 'month',
       if (month != null) 'targetMonth': '${month.year}-${month.month.toString().padLeft(2, '0')}',

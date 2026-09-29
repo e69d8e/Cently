@@ -12,6 +12,7 @@ import '../../utils/date_format_helper.dart';
 import '../../widgets/category_icon_widget.dart';
 import '../../widgets/date_or_month_picker_sheet.dart';
 import '../../widgets/empty_state.dart';
+import '../main_navigation_screen.dart';
 import '../record/add_record_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,10 +24,35 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isSearching = false;
+  bool _searchAutofocus = true;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _listController = ScrollController();
+  ValueNotifier<int>? _tabReselectSignal;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // 监听底部导航「再次点击当前 Tab」信号：平滑滚回列表顶部
+      _tabReselectSignal = MainNavigationScreen.tabReselectSignal(context, 0);
+      _tabReselectSignal?.addListener(_handleTabReselected);
+    });
+  }
+
+  void _handleTabReselected() {
+    if (!_listController.hasClients) return;
+    _listController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   void dispose() {
+    _tabReselectSignal?.removeListener(_handleTabReselected);
+    _listController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -252,6 +278,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final txProvider = Provider.of<TransactionProvider>(context);
     final catProvider = Provider.of<CategoryProvider>(context);
 
+    // 搜索词由其他页面设置时（如统计页高频项目跳转），自动展开搜索栏且不弹出键盘
+    if (!_isSearching && txProvider.searchQuery.isNotEmpty) {
+      _isSearching = true;
+      _searchAutofocus = false;
+      _searchController.text = txProvider.searchQuery;
+    } else if (_isSearching && _searchController.text != txProvider.searchQuery) {
+      // 搜索栏已展开但搜索词被外部更新（统计页跳转），同步输入框内容
+      _searchController.text = txProvider.searchQuery;
+    }
+
     final sortedGroups = txProvider.sortedDailyGroups;
 
     final now = DateTime.now();
@@ -349,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
               HapticFeedback.selectionClick();
               setState(() {
                 _isSearching = !_isSearching;
+                _searchAutofocus = _isSearching;
                 if (!_isSearching) {
                   _searchController.clear();
                   txProvider.setSearchQuery('');
@@ -398,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     TextField(
                       controller: _searchController,
-                      autofocus: true,
+                      autofocus: _searchAutofocus,
                       onChanged: (val) => txProvider.setSearchQuery(val),
                       decoration: InputDecoration(
                         hintText: '搜索分类、名称或备注...',
@@ -546,6 +583,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           )
                     : ListView.builder(
+                        controller: _listController,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                         itemCount: sortedGroups.length,
                         itemBuilder: (context, dateIndex) {
@@ -556,6 +594,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             group: group,
                             isDark: isDark,
                             catProvider: catProvider,
+                            searchQuery: txProvider.searchQuery,
                             onTapRecord: (record) => _showTransactionDetails(context, record),
                             onDeleteRecord: (record) async {
                               final confirmed = await _showDeleteConfirmDialog(context, record);
@@ -607,7 +646,14 @@ class _HomeScreenState extends State<HomeScreen> {
         : (balance < 0 ? AppColors.expense : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary));
 
     return RepaintBoundary(
-      child: Container(
+      child: Tooltip(
+        message: '查看本月统计图表',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => MainNavigationScreen.switchToTab(context, 1),
+            child: Container(
         margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -826,6 +872,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+          ),
+        ),
+      ),
       ),
     );
   }
@@ -835,6 +884,7 @@ class _DayGroupCard extends StatelessWidget {
   final DailyTransactionGroup group;
   final bool isDark;
   final CategoryProvider catProvider;
+  final String searchQuery;
   final ValueChanged<TransactionRecord> onTapRecord;
   final Future<bool> Function(TransactionRecord) onDeleteRecord;
 
@@ -843,6 +893,7 @@ class _DayGroupCard extends StatelessWidget {
     required this.group,
     required this.isDark,
     required this.catProvider,
+    required this.searchQuery,
     required this.onTapRecord,
     required this.onDeleteRecord,
   });
@@ -923,6 +974,7 @@ class _DayGroupCard extends StatelessWidget {
               record: record,
               category: cat,
               isDark: isDark,
+              searchQuery: searchQuery,
               onTap: () => onTapRecord(record),
               onDelete: () => onDeleteRecord(record),
             );
@@ -937,6 +989,7 @@ class _TransactionRecordTile extends StatelessWidget {
   final TransactionRecord record;
   final Category? category;
   final bool isDark;
+  final String searchQuery;
   final VoidCallback onTap;
   final Future<bool> Function() onDelete;
 
@@ -945,9 +998,13 @@ class _TransactionRecordTile extends StatelessWidget {
     required this.record,
     required this.category,
     required this.isDark,
+    required this.searchQuery,
     required this.onTap,
     required this.onDelete,
   });
+
+  Color get _highlightColor =>
+      isDark ? AppColors.searchHighlightDark : AppColors.searchHighlight;
 
   @override
   Widget build(BuildContext context) {
@@ -1002,8 +1059,10 @@ class _TransactionRecordTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          record.name,
+                        _HighlightedText(
+                          text: record.name,
+                          query: searchQuery,
+                          highlightColor: _highlightColor,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -1018,8 +1077,10 @@ class _TransactionRecordTile extends StatelessWidget {
                                 : AppColors.surfaceMutedLight,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            record.categoryName,
+                          child: _HighlightedText(
+                            text: record.categoryName,
+                            query: searchQuery,
+                            highlightColor: _highlightColor,
                             style: TextStyle(
                               fontSize: 10,
                               color: isDark
@@ -1032,8 +1093,10 @@ class _TransactionRecordTile extends StatelessWidget {
                     ),
                     if (record.remark != null && record.remark!.isNotEmpty) ...[
                       const SizedBox(height: 2),
-                      Text(
-                        record.remark!,
+                      _HighlightedText(
+                        text: record.remark!,
+                        query: searchQuery,
+                        highlightColor: _highlightColor,
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark
@@ -1050,8 +1113,10 @@ class _TransactionRecordTile extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    '${isExpense ? '-' : '+'}${CurrencyFormat.format(record.amount)}',
+                  _HighlightedText(
+                    text: '${isExpense ? '-' : '+'}${CurrencyFormat.format(record.amount)}',
+                    query: searchQuery,
+                    highlightColor: _highlightColor,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -1076,6 +1141,66 @@ class _TransactionRecordTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 命中搜索关键词的文本组件：将匹配片段以主题高亮色加粗展示，其余保持原样式。
+class _HighlightedText extends StatelessWidget {
+  final String text;
+  final String query;
+  final TextStyle? style;
+  final Color highlightColor;
+  final int? maxLines;
+  final TextOverflow? overflow;
+
+  const _HighlightedText({
+    required this.text,
+    required this.query,
+    required this.highlightColor,
+    this.style,
+    this.maxLines,
+    this.overflow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = style ?? const TextStyle();
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) {
+      return Text(
+        text,
+        style: baseStyle,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
+    }
+
+    final lowerText = text.toLowerCase();
+    final spans = <TextSpan>[];
+    int cursor = 0;
+    while (true) {
+      final index = lowerText.indexOf(normalizedQuery, cursor);
+      if (index < 0) {
+        if (cursor < text.length) {
+          spans.add(TextSpan(text: text.substring(cursor)));
+        }
+        break;
+      }
+      if (index > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, index)));
+      }
+      spans.add(TextSpan(
+        text: text.substring(index, index + normalizedQuery.length),
+        style: TextStyle(color: highlightColor, fontWeight: FontWeight.w700),
+      ));
+      cursor = index + normalizedQuery.length;
+    }
+
+    return Text.rich(
+      TextSpan(style: baseStyle, children: spans),
+      maxLines: maxLines,
+      overflow: overflow,
     );
   }
 }

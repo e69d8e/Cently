@@ -19,12 +19,27 @@ class MainNavigationScreen extends StatefulWidget {
     }
   }
 
+  /// Returns the re-select signal notifier of a tab. Incrementing it means the
+  /// user tapped the already-active tab again (e.g. scroll current list to top).
+  /// Returns null when the screen is displayed outside [MainNavigationScreen].
+  static ValueNotifier<int>? tabReselectSignal(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_MainNavigationScreenState>();
+    if (state == null || index < 0 || index >= state._tabReselectSignals.length) {
+      return null;
+    }
+    return state._tabReselectSignals[index];
+  }
+
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+
+  /// Per-tab counters bumped when the user taps the already-active tab.
+  final List<ValueNotifier<int>> _tabReselectSignals =
+      List.generate(4, (_) => ValueNotifier(0));
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -34,12 +49,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   ];
 
   void _onTabSelected(int index) {
-    if (_currentIndex == index) return;
+    if (_currentIndex == index) {
+      // Re-tapping the active tab: notify listeners (e.g. scroll to top)
+      _tabReselectSignals[index].value++;
+      return;
+    }
     HapticFeedback.selectionClick();
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  @override
+  void dispose() {
+    for (final signal in _tabReselectSignals) {
+      signal.dispose();
+    }
+    super.dispose();
   }
 
   @override

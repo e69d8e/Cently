@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/category_provider.dart';
+import 'providers/settings_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'screens/main_navigation_screen.dart';
 import 'theme/app_theme.dart';
@@ -36,25 +37,30 @@ class CentlyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => TransactionProvider()..loadCurrentMonth(),
         ),
+        ChangeNotifierProvider(
+          create: (_) => SettingsProvider()..loadThemeMode(),
+        ),
       ],
-      child: MaterialApp(
-        title: '分厘',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: const [
-          Locale('zh', 'CN'),
-          Locale('zh'),
-          Locale('en', 'US'),
-        ],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const MainNavigationScreen(),
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, _) => MaterialApp(
+          title: '分厘',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: settings.themeMode,
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('zh'),
+            Locale('en', 'US'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const MainNavigationScreen(),
+        ),
       ),
     );
   }

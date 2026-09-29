@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/category_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../theme/app_colors.dart';
 import '../category_manage/category_manage_screen.dart';
@@ -81,6 +82,7 @@ class SettingsScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final catProvider = Provider.of<CategoryProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
+    final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -181,6 +183,45 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
+          // Appearance Section
+          _buildSectionHeader('外观', isDark),
+          _buildCard(
+            isDark,
+            children: [
+              _buildThemeModeTile(
+                context,
+                title: '跟随系统',
+                subtitle: '自动适配系统的深浅色模式',
+                icon: Icons.brightness_auto_outlined,
+                mode: ThemeMode.system,
+                current: settingsProvider.themeMode,
+                isDark: isDark,
+              ),
+              const Divider(),
+              _buildThemeModeTile(
+                context,
+                title: '浅色模式',
+                subtitle: '始终使用浅色主题',
+                icon: Icons.light_mode_outlined,
+                mode: ThemeMode.light,
+                current: settingsProvider.themeMode,
+                isDark: isDark,
+              ),
+              const Divider(),
+              _buildThemeModeTile(
+                context,
+                title: '深色模式',
+                subtitle: '始终使用深色主题',
+                icon: Icons.dark_mode_outlined,
+                mode: ThemeMode.dark,
+                current: settingsProvider.themeMode,
+                isDark: isDark,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
           // Data Management Section
           _buildSectionHeader('数据管理与备份', isDark),
           _buildCard(
@@ -255,7 +296,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.info_outline_rounded),
                 title: const Text('关于 分厘'),
-                subtitle: const Text('版本 1.0.3 · 本地安全存储'),
+                subtitle: const Text('版本 1.0.4 · 本地安全存储'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showAboutDialog(context),
               ),
@@ -265,6 +306,33 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 40),
         ],
       ),
+    );
+  }
+
+  Widget _buildThemeModeTile(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required ThemeMode mode,
+    required ThemeMode current,
+    required bool isDark,
+  }) {
+    final isSelected = current == mode;
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: isSelected
+          ? Icon(
+              Icons.check_circle_rounded,
+              size: 20,
+              color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
+            )
+          : null,
+      onTap: () {
+        Provider.of<SettingsProvider>(context, listen: false).setThemeMode(mode);
+      },
     );
   }
 

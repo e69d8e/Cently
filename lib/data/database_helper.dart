@@ -57,7 +57,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onConfigure: _configureDB,
       onCreate: _createDB,
       onUpgrade: _onUpgradeDB,
@@ -86,6 +86,14 @@ class DatabaseHelper {
     }
     if (oldVersion < 5) {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_active_order ON transactions(deletedAt, timestamp DESC, createdAt DESC);');
+    }
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
     }
   }
 
@@ -131,7 +139,15 @@ class DatabaseHelper {
       )
     ''');
 
-    // 4. Create indices for high-frequency queries
+    // 4. App settings key-value store (theme mode and other lightweight preferences)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+
+    // 5. Create indices for high-frequency queries
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_categoryId ON transactions(categoryId);');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_transactions_deletedAt ON transactions(deletedAt);');
@@ -551,6 +567,31 @@ class DatabaseHelper {
   Future<void> close() async {
     final db = await database;
     await db.close();
+  }
+
+  // =================== APP SETTINGS (Key-Value) ===================
+
+  /// 读取轻量应用偏好设置（如主题模式）；不存在时返回 null
+  Future<String?> getSetting(String key) async {
+    final db = await database;
+    final rows = await db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  /// 写入轻量应用偏好设置（同 key 覆盖）
+  Future<void> setSetting(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'app_settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 }
 

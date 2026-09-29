@@ -17,6 +17,15 @@ import '../../widgets/numeric_keyboard.dart';
 import '../../widgets/record_date_time_picker_sheet.dart';
 import '../category_manage/category_detail_screen.dart';
 
+/// 一次成功保存的结果：携带落库后的账单记录及是否为编辑模式，
+/// 供调用方展示全局保存反馈（新增支持一键撤销）。
+class RecordSaveResult {
+  final TransactionRecord record;
+  final bool isEdit;
+
+  const RecordSaveResult({required this.record, required this.isEdit});
+}
+
 class AddRecordScreen extends StatefulWidget {
   final TransactionRecord? initialRecord; // If editing
   final Category? initialCategory; // If pre-filling category (e.g. repeat record)
@@ -29,13 +38,13 @@ class AddRecordScreen extends StatefulWidget {
     this.initialName,
   });
 
-  static Future<bool?> show(
+  static Future<RecordSaveResult?> show(
     BuildContext context, {
     TransactionRecord? initialRecord,
     Category? initialCategory,
     String? initialName,
-  }) {
-    return Navigator.push<bool>(
+  }) async {
+    final result = await Navigator.push<RecordSaveResult>(
       context,
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -46,6 +55,37 @@ class AddRecordScreen extends StatefulWidget {
         ),
       ),
     );
+
+    // 保存成功后给出全局反馈：ScaffoldMessenger 位于 Navigator 之上，
+    // 弹窗关闭后 SnackBar 依然可见；新记账支持一键彻底撤销。
+    if (result != null && context.mounted) {
+      final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              result.isEdit
+                  ? '已保存修改「${result.record.name}」'
+                  : '已记一笔「${result.record.name}」 ¥${CurrencyFormat.format(result.record.amount)}',
+            ),
+            duration: const Duration(milliseconds: 3000),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+            dismissDirection: DismissDirection.horizontal,
+            action: result.isEdit
+                ? null
+                : SnackBarAction(
+                    label: '撤销',
+                    textColor: AppColors.income,
+                    onPressed: () {
+                      txProvider.permanentlyDeleteTransaction(result.record.id);
+                    },
+                  ),
+          ),
+        );
+    }
+    return result;
   }
 
   @override
@@ -263,11 +303,14 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       if (!mounted) return;
 
       if (action == 'save') {
-        final success = await _saveRecord();
-        if (success && mounted) {
+        final saved = await _saveRecord();
+        if (saved != null && mounted) {
           _isForceClosing = true;
           setState(() {});
-          Navigator.of(context).pop(true);
+          Navigator.of(context).pop(RecordSaveResult(
+            record: saved,
+            isEdit: widget.initialRecord != null,
+          ));
         }
       } else if (action == 'discard') {
         _isForceClosing = true;
@@ -388,7 +431,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     return CurrencyFormat.parseExpression(_amountExpression);
   }
 
-  Future<bool> _saveRecord() async {
+  /// 校验并保存当前表单；成功时返回落库的账单记录，失败返回 null。
+  Future<TransactionRecord?> _saveRecord() async {
     final amount = _parseAmount();
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -397,7 +441,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           duration: Duration(milliseconds: 1500),
         ),
       );
-      return false;
+      return null;
     }
 
     if (_selectedCategory == null) {
@@ -425,7 +469,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           duration: Duration(milliseconds: 1500),
         ),
       );
-      return false;
+      return null;
     }
 
     final txProvider = Provider.of<TransactionProvider>(context, listen: false);
@@ -452,8 +496,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         clearRemark: remarkValue == null,
       );
       await txProvider.updateTransaction(updated);
+      return updated;
     } else {
-      await txProvider.addTransaction(
+      final record = await txProvider.addTransaction(
         amount: amount,
         type: _type,
         categoryId: _selectedCategory!.id,
@@ -462,25 +507,28 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         dateTime: recordTime,
         remark: remarkValue,
       );
+      return record;
     }
-    return true;
   }
 
   void _onDoneSave() async {
-    final success = await _saveRecord();
-    if (success && mounted) {
+    final saved = await _saveRecord();
+    if (saved != null && mounted) {
       _isForceClosing = true;
       setState(() {});
-      Navigator.pop(context, true);
+      Navigator.pop(context, RecordSaveResult(
+        record: saved,
+        isEdit: widget.initialRecord != null,
+      ));
     }
   }
 
   void _onSaveAndContinue() async {
-    final success = await _saveRecord();
-    if (success && mounted) {
+    final saved = await _saveRecord();
+    if (saved != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('已记录：${_nameController.text} ¥${_parseAmount().toStringAsFixed(2)}'),
+          content: Text('已记录：${saved.name} ¥${saved.amount.toStringAsFixed(2)}'),
           duration: const Duration(milliseconds: 1000),
         ),
       );

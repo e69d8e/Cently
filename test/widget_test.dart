@@ -424,6 +424,41 @@ void main() {
     expect(find.byType(RecycleBinScreen), findsOneWidget);
   });
 
+  testWidgets('Appearance section allows switching theme mode (dark/light/system)', (WidgetTester tester) async {
+    await tester.pumpWidget(const CentlyApp());
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Go to 设置 tab
+    await tester.tap(find.text('设置'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Appearance options are rendered
+    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('浅色模式'), findsOneWidget);
+    expect(find.text('深色模式'), findsOneWidget);
+
+    ThemeMode currentMode() =>
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
+
+    // Defaults to system
+    expect(currentMode(), ThemeMode.system);
+
+    // Switch to dark
+    await tester.tap(find.text('深色模式'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(currentMode(), ThemeMode.dark);
+
+    // Switch to light
+    await tester.tap(find.text('浅色模式'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(currentMode(), ThemeMode.light);
+
+    // Back to system
+    await tester.tap(find.text('跟随系统'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(currentMode(), ThemeMode.system);
+  });
+
   testWidgets('RecycleBinScreen renders correctly with empty and deleted records', (WidgetTester tester) async {
     final txProvider = TransactionProvider();
     final catProvider = CategoryProvider();
