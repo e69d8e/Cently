@@ -47,6 +47,10 @@
 - **65 项测试全量绿灯通过**：覆盖模型、状态机、多字段搜索、回收站 30 天自动清理规则及全套 Widget 交互测试。
 - **静态分析零告警**：`flutter analyze` 保持 0 Warning / 0 Error。
 
+#### 8. 🔐 Android 官方发布签名
+- **告别 debug 签名**：Android 全部发布产物（APK / AAB）改用 Cently 官方 release 密钥（PKCS12，alias `cently`，有效期 30 年）签名，可正常覆盖升级并通过分发平台校验。
+- **CI 自动验签**：Release 流水线从 Repository Secrets 还原密钥库，打包后自动执行 `apksigner` / `keytool` 证书指纹校验，签名不符即构建失败。
+
 ---
 
 ### 📦 全平台安装包下载指南
@@ -59,6 +63,27 @@
 | **🍏 iOS** | `Cently-iOS-unsigned-v1.0.3.ipa` | **iOS 独立应用包**，支持通过 TrollStore、AltStore、Sideloadly 或企业证书自签名安装。 |
 | **🤖 Android** | `Cently-Android-arm64-v8a-v1.0.3.apk` | **64 位 ARM 安装包**（推荐绝大多数现代 Android 手机），体积更小。<br>• 全架构通用版：`Cently-Android-Universal-v1.0.3.apk`<br>• 32 位老旧机型：`Cently-Android-armeabi-v7a-v1.0.3.apk`<br>• PC 模拟器及 x86：`Cently-Android-x86_64-v1.0.3.apk`<br>• Google Play 格式：`Cently-Android-v1.0.3.aab` |
 | **🌐 Web** | `Cently-Web-v1.0.3.zip` | **Web 静态网站资源包**，解压后可直接部署至 Nginx、Apache、Vercel 或 GitHub Pages。 |
+
+---
+
+### 🔐 安装包签名校验
+
+Android 产物已由 **Cently 官方 release 密钥**签名（不再使用 debug key），可用以下命令核对：
+
+```bash
+# APK
+apksigner verify --print-certs Cently-Android-Universal-v1.0.3.apk
+# AAB
+keytool -printcert -jarfile Cently-Android-v1.0.3.aab
+```
+
+官方签名证书指纹（应与输出完全一致）：
+
+- **SHA-256**：`2B:E3:1B:55:C2:A8:58:D4:F3:39:0D:83:4A:BB:7E:28:77:D6:BA:2F:AD:8A:29:FE:80:F5:E8:11:50:E7:8B:68`
+- **SHA-1**：`F3:E0:B7:CA:7C:C3:F5:DB:8F:D6:78:FB:9F:36:43:04:55:DE:D3:60`
+- **证书主体**：`CN=Cently, OU=Cently Mobile, O=Cently, L=Beijing, ST=Beijing, C=CN`
+
+> ⚠️ iOS 产物仍为未签名 `.ipa`（`--no-codesign`），需自行签名后安装；Windows / macOS / Linux 桌面产物未做代码签名。
 
 ---
 
