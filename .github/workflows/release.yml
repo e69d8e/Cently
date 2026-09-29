@@ -40,6 +40,28 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Configure Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not set - Android release builds will fall back to DEBUG signing."
+            exit 0
+          fi
+          echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/app/cently-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=${ANDROID_KEYSTORE_PASSWORD}
+          keyPassword=${ANDROID_KEY_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          storeFile=cently-release.jks
+          EOF
+          keytool -list -keystore android/app/cently-release.jks \
+            -storepass "${ANDROID_KEYSTORE_PASSWORD}" -alias "${ANDROID_KEY_ALIAS}" > /dev/null
+          echo "Release keystore ready (alias: ${ANDROID_KEY_ALIAS})."
+
       - name: Build Split per ABI APKs (32-bit & 64-bit)
         run: flutter build apk --split-per-abi --release
 
@@ -48,6 +70,42 @@ jobs:
 
       - name: Build Android App Bundle (AAB)
         run: flutter build appbundle --release
+
+      - name: Verify Android release signatures
+        run: |
+          if [ ! -f android/key.properties ]; then
+            echo "::warning::No release keystore configured, skipping signature verification (DEBUG signed build)."
+            exit 0
+          fi
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          APKSIGNER=$(find "${SDK_ROOT}/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)
+          if [ -z "${APKSIGNER}" ]; then
+            echo "::error::apksigner not found under ${SDK_ROOT}/build-tools"
+            exit 1
+          fi
+          fail=0
+          for apk in build/app/outputs/flutter-apk/*-release.apk; do
+            echo "== ${apk}"
+            "${APKSIGNER}" verify --print-certs "${apk}" | grep -E "certificate DN|SHA-256 digest"
+            if ! "${APKSIGNER}" verify --print-certs "${apk}" | grep -q "CN=Cently"; then
+              echo "::error::${apk} is not signed with the Cently release key"
+              fail=1
+            fi
+            if "${APKSIGNER}" verify --print-certs "${apk}" | grep -qi "Android Debug"; then
+              echo "::error::${apk} is signed with the Android DEBUG key"
+              fail=1
+            fi
+          done
+          for aab in build/app/outputs/bundle/release/app-release.aab; do
+            echo "== ${aab}"
+            # Locale-agnostic: match on the DN / digest values, not localized labels.
+            keytool -printcert -jarfile "${aab}" | grep -E "CN=Cently|SHA256"
+            if ! keytool -printcert -jarfile "${aab}" | grep -q "CN=Cently"; then
+              echo "::error::${aab} is not signed with the Cently release key"
+              fail=1
+            fi
+          done
+          exit ${fail}
 
       - name: Organize Android artifacts
         run: |

@@ -136,6 +136,43 @@ flutter build apk --split-per-abi --release
 flutter build appbundle --release
 ```
 
+#### 🔐 Android 发布签名
+
+正式发布的 APK / AAB 使用 Cently 官方 release 密钥签名（**不再使用 debug key**）。签名材料不入库：
+
+| 位置 | 内容 | 是否提交 |
+| --- | --- | --- |
+| `android/app/cently-release.jks` | PKCS12 密钥库（alias: `cently`，有效期 30 年） | ❌ 已被 `.gitignore` 忽略 |
+| `android/key.properties` | 密钥库口令与别名（`storeFile` 相对 `android/app/`） | ❌ 已被 `.gitignore` 忽略 |
+
+CI 通过以下 **Repository Secrets** 还原签名环境（见 `release.yml` 的 *Configure Android release signing* 步骤）：
+
+| Secret | 说明 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -i android/app/cently-release.jks \| tr -d '\n'` 的输出 |
+| `ANDROID_KEYSTORE_PASSWORD` | 密钥库口令 |
+| `ANDROID_KEY_ALIAS` | `cently` |
+| `ANDROID_KEY_PASSWORD` | 密钥口令 |
+
+若本地缺少 `android/key.properties`，release 构建会回退到 debug 签名并打印警告（仅供本地调试，请勿分发）。CI 在打包后会执行 *Verify Android release signatures* 步骤，指纹不匹配则直接失败。
+
+**校验已下载产物的签名**（应与下方指纹完全一致）：
+
+```bash
+# APK
+apksigner verify --print-certs Cently-Android-Universal-vX.Y.Z.apk
+# AAB
+keytool -printcert -jarfile Cently-Android-vX.Y.Z.aab
+```
+
+官方签名证书：
+
+- **SHA-256**：`2B:E3:1B:55:C2:A8:58:D4:F3:39:0D:83:4A:BB:7E:28:77:D6:BA:2F:AD:8A:29:FE:80:F5:E8:11:50:E7:8B:68`
+- **SHA-1**：`F3:E0:B7:CA:7C:C3:F5:DB:8F:D6:78:FB:9F:36:43:04:55:DE:D3:60`
+- 证书主体：`CN=Cently, OU=Cently Mobile, O=Cently, L=Beijing, ST=Beijing, C=CN`
+
+> ⚠️ 请离线备份密钥库与口令：密钥一旦丢失，已安装用户将无法覆盖升级（只能卸载重装）。
+
 ### 2. iOS 端打包 (IPA)
 ```bash
 # 构建 iOS 归档并导出 IPA

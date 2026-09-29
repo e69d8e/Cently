@@ -61,3 +61,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local secrets (keystore backups, signing credentials) - never commit
+.secrets/

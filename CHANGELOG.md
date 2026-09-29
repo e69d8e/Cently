@@ -63,6 +63,10 @@
 - **65 项测试全量绿灯通过**：覆盖模型、状态机、多字段搜索、回收站 30 天自动清理规则及全套 Widget 交互测试。
 - **静态分析零告警**：`flutter analyze` 保持 0 Warning / 0 Error。
 
+#### 8. 🔐 Android 官方发布签名
+- **告别 debug 签名**：Android 发布产物（APK / AAB）改用 Cently 官方 release 密钥（PKCS12，alias `cently`，有效期 30 年）签名，安装包可正常覆盖升级与分发校验。
+- **CI 全自动签名与验签**：Release 流水线通过 `ANDROID_KEYSTORE_BASE64` 等 Repository Secrets 还原密钥库，打包后自动执行 `apksigner` / `keytool` 证书指纹校验，签名不符即构建失败（详见 [README](README.md#-android-发布签名)）。
+
 ---
 
 ## [v1.0.2] - 2026-09-04
