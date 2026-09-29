@@ -147,7 +147,29 @@
 
 ## 全平台构建产物与 SHA-256 校验指纹
 
-### 最新版本 (v1.0.2) 产物清单
+### 最新版本 (v1.0.3) 产物清单
+
+| 平台 / 架构 | 发布文件名 | 大小 | SHA-256 校验指纹 |
+| :--- | :--- | :--- | :--- |
+| **🪟 Windows Setup** | `Cently-Windows-x64-1.0.3-Setup.exe` | 15.38 MB | `4c821fbcaf9c84f4651a23a24226752e45fb7511634acb083b730cb0f08a6db8` |
+| **🪟 Windows Portable** | `Cently-Windows-x64-v1.0.3.zip` | 18.86 MB | `56d12706843e1aee53e18526d39eb94d4ae5b021afaf24c3713f6832ce3a40e6` |
+| **🍎 macOS DMG** | `Cently-macOS-v1.0.3.dmg` | 28.78 MB | `950c2eabfdaa0e4f757572332d8609d4ecdc39e22785ed33db00aa6fbe54c4ae` |
+| **🍎 macOS ZIP** | `Cently-macOS-v1.0.3.zip` | 28.86 MB | `c795e88bd77f03b0a794666ea6195e830db4107aab7978f56e14ab6fa06a828f` |
+| **🐧 Linux DEB** | `Cently-Linux-amd64-v1.0.3.deb` | 14.46 MB | `6087ff1c5b0f42a48c9ae84ba93fb60de286d4b9bb1d06e0dc6badfa3b162ee6` |
+| **🐧 Linux Tarball** | `Cently-Linux-x64-v1.0.3.tar.gz` | 16.52 MB | `9aa342fa08ed4ab037a3887845ee74ec3435dc6ac47e4e3e6d37fe355fcad7d1` |
+| **🍏 iOS (自签名)** | `Cently-iOS-unsigned-v1.0.3.ipa` | 16.21 MB | `33e434b7abc6397ea25e1fbd4773969f6e07adf8e7390345d994302e68946449` |
+| **🤖 Android arm64** | `Cently-Android-arm64-v8a-v1.0.3.apk` | 26.01 MB | `cb0bd38890d7865a1a96f20e7e97ddc0820974fcb3547dda1adfef3f17436196` |
+| **🤖 Android Universal** | `Cently-Android-Universal-v1.0.3.apk` | 63.77 MB | `44a5207c906116b80523b2cea9995d0b64a27a5e20fa888121341e9f68a957ff` |
+| **🤖 Android armeabi-v7a**| `Cently-Android-armeabi-v7a-v1.0.3.apk`| 23.57 MB | `d9f6dec4124974313ccd619953b9ac82d3e45d61168f5a089dc9d9bfcc9a2b75` |
+| **🤖 Android x86_64** | `Cently-Android-x86_64-v1.0.3.apk` | 27.39 MB | `c167e222e30abe046c14eda56716f96fa3965f256cf82d3491843d058767436c` |
+| **🤖 Android AAB** | `Cently-Android-v1.0.3.aab` | 62.24 MB | `62e76804d73072555c1ecf1a1a12125f10977d364392dda1767a1657db0b6ff5` |
+| **🌐 Web 静态包** | `Cently-Web-v1.0.3.zip` | 20.37 MB | `9af3517efe3aed5f739879ae53bd6b0605aaf75c23cdd593db98faac8257e9f8` |
+
+> 🔐 自 v1.0.3 起，Android 产物（APK / AAB）使用 **Cently 官方 release 密钥**签名（证书 SHA-256 `2B:E3:1B:55:C2:A8:58:D4:F3:39:0D:83:4A:BB:7E:28:77:D6:BA:2F:AD:8A:29:FE:80:F5:E8:11:50:E7:8B:68`），校验方式见 [README 签名章节](README.md#-android-发布签名)。
+
+---
+
+### 历史版本 (v1.0.2) 产物清单
 
 | 平台 / 架构 | 发布文件名 | 大小 | SHA-256 校验指纹 |
 | :--- | :--- | :--- | :--- |
