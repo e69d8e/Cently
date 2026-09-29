@@ -204,7 +204,7 @@ flutter build web --release
 
 - **CI 流水线 (`.github/workflows/ci.yml`)**：在向 `main` 分支提交代码或发起 PR 时，自动执行代码静态分析 (`flutter analyze`) 与单元测试 (`flutter test`)。
 - **Release 流水线 (`.github/workflows/release.yml`)**：
-  - **触发方式**：推送版本标签（例如 `git tag v1.0.3 && git push origin v1.0.3`）或在 GitHub Actions 页面手动触发；
+  - **触发方式**：推送版本标签（例如 `git tag v1.0.4 && git push origin v1.0.4`）或在 GitHub Actions 页面手动触发；
   - **全平台构建产物矩阵**：
     - 🤖 **Android**：
       - `Cently-Android-Universal-v*.apk`（全架构通用版）
