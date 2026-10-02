@@ -121,4 +121,92 @@ void main() {
       expect(provider.themeMode, ThemeMode.system);
     });
   });
+
+  group('SettingsProvider auto check update', () {
+    late Database db;
+
+    setUp(() async {
+      db = await openDatabase(
+        inMemoryDatabasePath,
+        version: 6,
+        onCreate: (db, version) async {
+          await DatabaseHelper.instance.createDBForTesting(db);
+        },
+      );
+      DatabaseHelper.setDatabaseForTesting(db);
+    });
+
+    tearDown(() async {
+      await db.close();
+      DatabaseHelper.setDatabaseForTesting(null);
+    });
+
+    test('defaults to off and never auto-checks before enabling', () {
+      final provider = SettingsProvider();
+      expect(provider.autoCheckUpdate, false);
+      expect(provider.shouldAutoCheckToday, false);
+    });
+
+    test('setAutoCheckUpdate persists and notifies', () async {
+      final provider = SettingsProvider();
+      var notifications = 0;
+      provider.addListener(() => notifications++);
+
+      await provider.setAutoCheckUpdate(true);
+      expect(provider.autoCheckUpdate, true);
+      expect(notifications, 1);
+      expect(await DatabaseHelper.instance.getSetting('autoCheckUpdate'), 'true');
+
+      await provider.setAutoCheckUpdate(false);
+      expect(provider.autoCheckUpdate, false);
+      expect(notifications, 2);
+      expect(await DatabaseHelper.instance.getSetting('autoCheckUpdate'), 'false');
+    });
+
+    test('setAutoCheckUpdate with the same value is a no-op', () async {
+      final provider = SettingsProvider();
+      var notifications = 0;
+      provider.addListener(() => notifications++);
+
+      await provider.setAutoCheckUpdate(false);
+      expect(notifications, 0);
+      expect(await DatabaseHelper.instance.getSetting('autoCheckUpdate'), isNull);
+    });
+
+    test('loadAutoCheckUpdate restores persisted switch', () async {
+      await DatabaseHelper.instance.setSetting('autoCheckUpdate', 'true');
+
+      final provider = SettingsProvider();
+      await provider.loadAutoCheckUpdate();
+      expect(provider.autoCheckUpdate, true);
+    });
+
+    test('loadAutoCheckUpdate treats unknown values as off', () async {
+      await DatabaseHelper.instance.setSetting('autoCheckUpdate', 'yes');
+
+      final provider = SettingsProvider();
+      await provider.loadAutoCheckUpdate();
+      expect(provider.autoCheckUpdate, false);
+    });
+
+    test('shouldAutoCheckToday is true after enabling until checked today', () async {
+      final provider = SettingsProvider();
+      await provider.setAutoCheckUpdate(true);
+      expect(provider.shouldAutoCheckToday, true);
+
+      await provider.markUpdateChecked();
+      expect(provider.shouldAutoCheckToday, false);
+    });
+
+    test('markUpdateChecked persists the date and survives a reload', () async {
+      final provider = SettingsProvider();
+      await provider.setAutoCheckUpdate(true);
+      await provider.markUpdateChecked();
+
+      final reloaded = SettingsProvider();
+      await reloaded.loadAutoCheckUpdate();
+      expect(reloaded.autoCheckUpdate, true);
+      expect(reloaded.shouldAutoCheckToday, false);
+    });
+  });
 }

@@ -534,7 +534,7 @@ class TransactionProvider extends ChangeNotifier {
 
     final data = {
       'app': 'Cently',
-      'version': '1.0.4',
+      'version': '1.0.5',
       'exportTime': DateTime.now().toIso8601String(),
       'exportScope': month == null ? 'all' : 'month',
       if (month != null) 'targetMonth': '${month.year}-${month.month.toString().padLeft(2, '0')}',

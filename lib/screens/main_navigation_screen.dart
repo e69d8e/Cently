@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/settings_provider.dart';
+import '../services/update_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/update_available_dialog.dart';
 import 'category_manage/category_manage_screen.dart';
 import 'home/home_screen.dart';
 import 'record/add_record_screen.dart';
@@ -36,6 +42,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  Timer? _autoCheckTimer;
 
   /// Per-tab counters bumped when the user taps the already-active tab.
   final List<ValueNotifier<int>> _tabReselectSignals =
@@ -48,6 +55,43 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     SettingsScreen(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    // 启动稍作停留后再做自动检查更新，避免与首屏数据加载争抢
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoCheckTimer = Timer(const Duration(seconds: 2), () {
+        _autoCheckUpdateIfNeeded();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoCheckTimer?.cancel();
+    for (final signal in _tabReselectSignals) {
+      signal.dispose();
+    }
+    super.dispose();
+  }
+
+  /// 开启了自动检查更新且今天尚未检查过时，静默请求 GitHub 最新 Release；
+  /// 有新版本弹窗提示，任何失败仅 debugPrint，不阻塞、不打扰。
+  Future<void> _autoCheckUpdateIfNeeded() async {
+    if (!mounted) return;
+    final settings = context.read<SettingsProvider>();
+    if (!settings.shouldAutoCheckToday) return;
+    try {
+      final info = await UpdateService().checkForUpdate();
+      await settings.markUpdateChecked();
+      if (info != null && mounted) {
+        showUpdateAvailableDialog(context, info);
+      }
+    } catch (e) {
+      debugPrint('Auto update check failed: $e');
+    }
+  }
+
   void _onTabSelected(int index) {
     if (_currentIndex == index) {
       // Re-tapping the active tab: notify listeners (e.g. scroll to top)
@@ -59,14 +103,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     setState(() {
       _currentIndex = index;
     });
-  }
-
-  @override
-  void dispose() {
-    for (final signal in _tabReselectSignals) {
-      signal.dispose();
-    }
-    super.dispose();
   }
 
   @override

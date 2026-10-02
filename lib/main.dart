@@ -38,7 +38,9 @@ class CentlyApp extends StatelessWidget {
           create: (_) => TransactionProvider()..loadCurrentMonth(),
         ),
         ChangeNotifierProvider(
-          create: (_) => SettingsProvider()..loadThemeMode(),
+          create: (_) => SettingsProvider()
+            ..loadThemeMode()
+            ..loadAutoCheckUpdate(),
         ),
       ],
       child: Consumer<SettingsProvider>(

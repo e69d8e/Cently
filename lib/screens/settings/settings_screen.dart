@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../services/update_service.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/update_available_dialog.dart';
 import '../category_manage/category_manage_screen.dart';
 import 'data_backup_screen.dart';
 import 'recycle_bin_screen.dart';
@@ -35,41 +37,6 @@ class SettingsScreen extends StatelessWidget {
               }
             },
             child: const Text('确认清空'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.spa_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('关于 分厘'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '「分厘」取意自“差之毫厘，失之千里”与“积少成多”。\n\n'
-              '分厘 是一款专注于极简、纯粹与高效的无后端本地记账应用。\n\n'
-              '• 100% 本地安全：数据纯本地离线保存，零云端上传，零隐私泄露。\n'
-              '• 预设与自由并存：内置丰富的日常分类与项目预设，支持一键点选与自由输入。\n'
-              '• 极速计算键盘：让每一笔记录都轻快自然。',
-              style: TextStyle(fontSize: 13, height: 1.6),
-            ),
-          ],
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('好的'),
           ),
         ],
       ),
@@ -290,18 +257,7 @@ class SettingsScreen extends StatelessWidget {
 
           // About Section
           _buildSectionHeader('关于应用', isDark),
-          _buildCard(
-            isDark,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.info_outline_rounded),
-                title: const Text('关于 分厘'),
-                subtitle: const Text('版本 1.0.4 · 本地安全存储'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _showAboutDialog(context),
-              ),
-            ],
-          ),
+          const _AboutSectionCard(),
 
           const SizedBox(height: 40),
         ],
@@ -354,6 +310,140 @@ class SettingsScreen extends StatelessWidget {
     return Card(
       child: Column(
         children: children,
+      ),
+    );
+  }
+}
+
+/// 「关于应用」分组卡片：应用信息、自动检查更新开关与手动检查入口。
+///
+/// 持有手动检查中的加载状态与当前版本号（PackageInfo 异步读取，
+/// 失败时显示占位符，不阻塞页面）。
+class _AboutSectionCard extends StatefulWidget {
+  const _AboutSectionCard();
+
+  @override
+  State<_AboutSectionCard> createState() => _AboutSectionCardState();
+}
+
+class _AboutSectionCardState extends State<_AboutSectionCard> {
+  String? _appVersion;
+  bool _checking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    UpdateService.loadAppVersion().then((version) {
+      if (mounted) setState(() => _appVersion = version);
+    });
+  }
+
+  Future<void> _showAboutDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.spa_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('关于 分厘'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '「分厘」取意自“差之毫厘，失之千里”与“积少成多”。\n\n'
+              '分厘 是一款专注于极简、纯粹与高效的无后端本地记账应用。\n\n'
+              '• 100% 本地安全：数据纯本地离线保存，零云端上传，零隐私泄露。\n'
+              '• 预设与自由并存：内置丰富的日常分类与项目预设，支持一键点选与自由输入。\n'
+              '• 极速计算键盘：让每一笔记录都轻快自然。',
+              style: TextStyle(fontSize: 13, height: 1.6),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('好的'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 手动检查更新：不受开关与每日节流限制，结果即时反馈。
+  Future<void> _checkForUpdate() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    try {
+      final info = await UpdateService().checkForUpdate();
+      if (!mounted) return;
+      await settings.markUpdateChecked();
+      if (!mounted) return;
+      if (info != null) {
+        await showUpdateAvailableDialog(
+          context,
+          info,
+          currentVersion: _appVersion,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前已是最新版本')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Manual update check failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('检查更新失败，请检查网络连接')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final versionLabel = _appVersion ?? '…';
+
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.info_outline_rounded),
+            title: const Text('关于 分厘'),
+            subtitle: Text('版本 $versionLabel · 本地安全存储'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _showAboutDialog,
+          ),
+          const Divider(),
+          SwitchListTile(
+            secondary: const Icon(Icons.autorenew_outlined),
+            title: const Text('自动检查更新'),
+            subtitle: const Text('启动时联网检查新版本，仅连接 GitHub，不上传任何数据'),
+            value: settings.autoCheckUpdate,
+            onChanged: (value) => settings.setAutoCheckUpdate(value),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.system_update_outlined),
+            title: const Text('检查更新'),
+            subtitle: const Text('手动检查 GitHub 最新发布版本'),
+            trailing: _checking
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right_rounded),
+            onTap: _checkForUpdate,
+          ),
+        ],
       ),
     );
   }

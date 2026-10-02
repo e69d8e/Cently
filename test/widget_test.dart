@@ -12,12 +12,14 @@ import 'package:cently/screens/main_navigation_screen.dart';
 import 'package:cently/screens/record/add_record_screen.dart';
 import 'package:cently/screens/settings/data_backup_screen.dart';
 import 'package:cently/screens/settings/recycle_bin_screen.dart';
+import 'package:cently/screens/settings/settings_screen.dart';
 import 'package:cently/screens/stats/stats_screen.dart';
 import 'package:cently/theme/app_colors.dart';
 import 'package:cently/utils/currency_format.dart';
 import 'package:cently/widgets/date_or_month_picker_sheet.dart';
 import 'package:cently/widgets/numeric_keyboard.dart';
 import 'package:cently/widgets/record_date_time_picker_sheet.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -422,6 +424,47 @@ void main() {
 
     // Verify RecycleBinScreen is opened
     expect(find.byType(RecycleBinScreen), findsOneWidget);
+  });
+
+  testWidgets('About section shows auto check update switch and manual check entry', (WidgetTester tester) async {
+    // 固定版本号，避免依赖平台通道（测试环境无 package_info 插件实现）
+    PackageInfo.setMockInitialValues(
+      appName: 'Cently',
+      packageName: 'com.e69d8e.cently',
+      version: '1.0.4',
+      buildNumber: '5',
+      buildSignature: '',
+    );
+    await tester.pumpWidget(const CentlyApp());
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Tap on 设置 tab
+    await tester.tap(find.text('设置'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // 滚动到底部的「关于应用」分组（ListView 懒构建，需先滚出该分组）
+    final settingsList = find
+        .descendant(of: find.byType(SettingsScreen), matching: find.byType(ListView))
+        .first;
+    await tester.dragUntilVisible(
+      find.text('自动检查更新'),
+      settingsList,
+      const Offset(0, -300),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // 关于应用分组包含自动检查更新开关与手动检查入口，版本号动态显示
+    expect(find.text('自动检查更新'), findsOneWidget);
+    expect(find.text('检查更新'), findsOneWidget);
+    expect(find.text('版本 1.0.4 · 本地安全存储'), findsOneWidget);
+
+    // 开关默认关闭，整行点击后打开
+    final updateSwitch = find.byType(SwitchListTile);
+    expect(updateSwitch, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(updateSwitch).value, false);
+    await tester.tap(updateSwitch);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.widget<SwitchListTile>(updateSwitch).value, true);
   });
 
   testWidgets('Appearance section allows switching theme mode (dark/light/system)', (WidgetTester tester) async {
