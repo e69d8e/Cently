@@ -10,9 +10,10 @@
 
 - **版本号**：`v1.0.2`（构建版本 `1.0.2+3`）
 - **发布日期**：2026-09-04
-- **Git 标签 / Commit**：`v1.0.2` (`6878869`)
+- **Git 标签**：`v1.0.2` (`4762e5b`)
 - **发布地址**：[GitHub Releases v1.0.2](https://github.com/e69d8e/Cently/releases/tag/v1.0.2)
 - **代码对比**：[`v1.0.1...v1.0.2`](https://github.com/e69d8e/Cently/compare/v1.0.1...v1.0.2)
+- **完整提交记录**：[`commits/v1.0.2`](https://github.com/e69d8e/Cently/commits/v1.0.2)
 
 ---
 
@@ -36,37 +37,14 @@
 
 ---
 
-### 📦 全平台安装包下载指南
+### 📦 安装与下载（仅 Android）
 
-| 平台 / 系统 | 推荐下载文件 | 文件大小 | 说明 |
-| :--- | :--- | :--- | :--- |
-| **🪟 Windows** | [`Cently-Windows-x64-1.0.2-Setup.exe`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Windows-x64-1.0.2-Setup.exe) | 15.15 MB | **Windows 标准安装向导程序**（推荐），支持创建桌面与开始菜单快捷方式。<br>*若需绿色免安装版可下载 [`Cently-Windows-x64-v1.0.2.zip`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Windows-x64-v1.0.2.zip) (18.49 MB)* |
-| **🍎 macOS** | [`Cently-macOS-v1.0.2.dmg`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-macOS-v1.0.2.dmg) | 28.50 MB | **macOS 拖拽安装镜像**（推荐），双击打开后拖拽至 Applications 目录即可。<br>*亦提供 [`Cently-macOS-v1.0.2.zip`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-macOS-v1.0.2.zip) (28.57 MB) 原生应用压缩包* |
-| **🐧 Linux** | [`Cently-Linux-amd64-v1.0.2.deb`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Linux-amd64-v1.0.2.deb) | 14.29 MB | **Debian / Ubuntu 安装包**（推荐），双击或通过 `sudo dpkg -i` 安装，自动注册系统应用菜单。<br>*亦提供 [`Cently-Linux-x64-v1.0.2.tar.gz`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Linux-x64-v1.0.2.tar.gz) (16.30 MB) 独立运行包* |
-| **🍏 iOS** | [`Cently-iOS-unsigned-v1.0.2.ipa`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-iOS-unsigned-v1.0.2.ipa) | 16.06 MB | **iOS 独立应用包**，支持通过 TrollStore、AltStore、Sideloadly 或企业证书自签名安装。 |
-| **🤖 Android** | [`Cently-Android-arm64-v8a-v1.0.2.apk`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Android-arm64-v8a-v1.0.2.apk) | 25.71 MB | **64 位 ARM 安装包**（推荐绝大多数现代 Android 手机），体积更小。<br>• 全架构通用版：[`Cently-Android-Universal-v1.0.2.apk`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Android-Universal-v1.0.2.apk) (63.00 MB)<br>• 32 位老旧机型：[`Cently-Android-armeabi-v7a-v1.0.2.apk`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Android-armeabi-v7a-v1.0.2.apk) (23.30 MB)<br>• PC 模拟器及 x86：[`Cently-Android-x86_64-v1.0.2.apk`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Android-x86_64-v1.0.2.apk) (27.09 MB)<br>• Google Play 格式：[`Cently-Android-v1.0.2.aab`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Android-v1.0.2.aab) (61.56 MB) |
-| **🌐 Web** | [`Cently-Web-v1.0.2.zip`](https://github.com/e69d8e/Cently/releases/download/v1.0.2/Cently-Web-v1.0.2.zip) | 20.31 MB | **Web 静态网站资源包**，解压后可直接部署至 Nginx、Apache、Vercel 或 GitHub Pages。 |
+发布流水线只构建以下三个 Android 安装包：
 
----
+| 安装包 | 适用设备 | 说明 |
+| :--- | :--- | :--- |
+| 🤖 `Cently-Android-arm64-v8a-v1.0.2.apk` | 绝大多数现代 64 位 Android 手机 | **推荐**，体积最小 |
+| 🤖 `Cently-Android-armeabi-v7a-v1.0.2.apk` | 老旧 32 位 ARM 设备 | 兼容性优先 |
+| 🤖 `Cently-Android-Universal-v1.0.2.apk` | 全部架构（含 x86_64 模拟器） | 通用包，体积稍大 |
 
-### 🛡️ 安装包 SHA-256 完整性校验
-
-| 产物文件名 | SHA-256 校验指纹 |
-| :--- | :--- |
-| `Cently-Windows-x64-1.0.2-Setup.exe` | `6087d36e2c42ca28c67ec082ffa94cf7b7d02558aa3b7f8583ab5e299361e7c9` |
-| `Cently-Windows-x64-v1.0.2.zip` | `51446739f73248813ad0f2fb7c1e9142c0c71efe63fb5bba8eab3638e387966a` |
-| `Cently-macOS-v1.0.2.dmg` | `16061157696696cf2f7c2f2fb7ac0375cfbc9cd9a00223d3ea6451fca5adb5ef` |
-| `Cently-macOS-v1.0.2.zip` | `0914f146f564c92e4cda0055237add0ea32bbbf2386681970807b16d5d5b2500` |
-| `Cently-Linux-amd64-v1.0.2.deb` | `532f51253dcb13a99c51fcadd3b9a34aaef80ebaef5bc020a0b9fec7bc98c103` |
-| `Cently-Linux-x64-v1.0.2.tar.gz` | `6897feeaeb30ebf27789d7d2af5d15cca9ce70981045eec2daf0998b5d2e2291` |
-| `Cently-iOS-unsigned-v1.0.2.ipa` | `a62c02a5bfbe0258824ec6c5ff0b7ad74787393173e633339aa73ac10577e3e4` |
-| `Cently-Android-arm64-v8a-v1.0.2.apk` | `8ce261d7a963c7c7c4b1c8c0426f131d4003c644e936b8dfa6e4ca8ec62f9157` |
-| `Cently-Android-Universal-v1.0.2.apk` | `71ecaa39c7e2d379c2c4bac19127306d5f8d892583761cf06dcdfdf21688134f` |
-| `Cently-Android-armeabi-v7a-v1.0.2.apk` | `a79cf1d0bd331ec8fef457febac5c884e0e605ab4140e26bc70fe8afef86d403` |
-| `Cently-Android-x86_64-v1.0.2.apk` | `d1e4ebb36f310b60f22d0dbc1420cd58f2192e05b2984a60fa91b286031399e9` |
-| `Cently-Android-v1.0.2.aab` | `d1d5f4bda7dbd494066c28419e57d79aa063e5b311f52ef74de809b3f7960179` |
-| `Cently-Web-v1.0.2.zip` | `6637b63d7967bc764ff54536746ea84d9e7d5856bea581070e5f784b936e82eb` |
-
----
-
-**完整提交记录**：https://github.com/e69d8e/Cently/commits/v1.0.2
+> iOS / macOS / Windows / Linux / Web 版本不再随 Releases 发布；如需使用请在本地自行编译（见仓库 README 的「打包构建」章节）。

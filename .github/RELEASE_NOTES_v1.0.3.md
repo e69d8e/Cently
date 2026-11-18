@@ -9,10 +9,11 @@
 ### 📋 版本发布信息
 
 - **版本号**：`v1.0.3`（构建版本 `1.0.3+4`）
-- **发布日期**：2026-09-12
-- **Git 标签**：`v1.0.3`
+- **发布日期**：2026-09-29
+- **Git 标签**：`v1.0.3` (`2384145`)
 - **发布地址**：[GitHub Releases v1.0.3](https://github.com/e69d8e/Cently/releases/tag/v1.0.3)
 - **代码对比**：[`v1.0.2...v1.0.3`](https://github.com/e69d8e/Cently/compare/v1.0.2...v1.0.3)
+- **完整提交记录**：[`commits/v1.0.3`](https://github.com/e69d8e/Cently/commits/v1.0.3)
 
 ---
 
@@ -53,38 +54,14 @@
 
 ---
 
-### 📦 全平台安装包下载指南
+### 📦 安装与下载（仅 Android）
 
-| 平台 / 系统 | 推荐下载文件 | 说明 |
+发布流水线只构建以下三个 Android 安装包：
+
+| 安装包 | 适用设备 | 说明 |
 | :--- | :--- | :--- |
-| **🪟 Windows** | `Cently-Windows-x64-1.0.3-Setup.exe` | **Windows 标准安装向导程序**（推荐），支持创建桌面与开始菜单快捷方式。<br>*亦提供 `Cently-Windows-x64-v1.0.3.zip` 绿色免安装版* |
-| **🍎 macOS** | `Cently-macOS-v1.0.3.dmg` | **macOS 拖拽安装镜像**（推荐），双击打开后拖拽至 Applications 目录即可。<br>*亦提供 `Cently-macOS-v1.0.3.zip` 原生应用压缩包* |
-| **🐧 Linux** | `Cently-Linux-amd64-v1.0.3.deb` | **Debian / Ubuntu 安装包**（推荐），双击或通过 `sudo dpkg -i` 安装。<br>*亦提供 `Cently-Linux-x64-v1.0.3.tar.gz` 独立运行包* |
-| **🍏 iOS** | `Cently-iOS-unsigned-v1.0.3.ipa` | **iOS 独立应用包**，支持通过 TrollStore、AltStore、Sideloadly 或企业证书自签名安装。 |
-| **🤖 Android** | `Cently-Android-arm64-v8a-v1.0.3.apk` | **64 位 ARM 安装包**（推荐绝大多数现代 Android 手机），体积更小。<br>• 全架构通用版：`Cently-Android-Universal-v1.0.3.apk`<br>• 32 位老旧机型：`Cently-Android-armeabi-v7a-v1.0.3.apk`<br>• PC 模拟器及 x86：`Cently-Android-x86_64-v1.0.3.apk`<br>• Google Play 格式：`Cently-Android-v1.0.3.aab` |
-| **🌐 Web** | `Cently-Web-v1.0.3.zip` | **Web 静态网站资源包**，解压后可直接部署至 Nginx、Apache、Vercel 或 GitHub Pages。 |
+| 🤖 `Cently-Android-arm64-v8a-v1.0.3.apk` | 绝大多数现代 64 位 Android 手机 | **推荐**，体积最小 |
+| 🤖 `Cently-Android-armeabi-v7a-v1.0.3.apk` | 老旧 32 位 ARM 设备 | 兼容性优先 |
+| 🤖 `Cently-Android-Universal-v1.0.3.apk` | 全部架构（含 x86_64 模拟器） | 通用包，体积稍大 |
 
----
-
-### 🔐 安装包签名校验
-
-Android 产物已由 **Cently 官方 release 密钥**签名（不再使用 debug key），可用以下命令核对：
-
-```bash
-# APK
-apksigner verify --print-certs Cently-Android-Universal-v1.0.3.apk
-# AAB
-keytool -printcert -jarfile Cently-Android-v1.0.3.aab
-```
-
-官方签名证书指纹（应与输出完全一致）：
-
-- **SHA-256**：`2B:E3:1B:55:C2:A8:58:D4:F3:39:0D:83:4A:BB:7E:28:77:D6:BA:2F:AD:8A:29:FE:80:F5:E8:11:50:E7:8B:68`
-- **SHA-1**：`F3:E0:B7:CA:7C:C3:F5:DB:8F:D6:78:FB:9F:36:43:04:55:DE:D3:60`
-- **证书主体**：`CN=Cently, OU=Cently Mobile, O=Cently, L=Beijing, ST=Beijing, C=CN`
-
-> ⚠️ iOS 产物仍为未签名 `.ipa`（`--no-codesign`），需自行签名后安装；Windows / macOS / Linux 桌面产物未做代码签名。
-
----
-
-**完整提交记录**：https://github.com/e69d8e/Cently/commits/v1.0.3
+> iOS / macOS / Windows / Linux / Web 版本不再随 Releases 发布；如需使用请在本地自行编译（见仓库 README 的「打包构建」章节）。
