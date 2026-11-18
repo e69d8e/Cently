@@ -13,7 +13,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20|%20iOS%20|%20macOS%20|%20Windows%20|%20Web-blue.svg)](#平台支持)
 [![Release](https://img.shields.io/github/v/release/e69d8e/Cently?color=orange&logo=github)](https://github.com/e69d8e/Cently/releases)
 
-[功能特性](#-功能特性) • [技术架构](#-技术架构) • [快速开始](#-快速开始) • [打包构建](#-打包构建) • [CI/CD 自动化](#-cicd-自动化发布) • [开源协议](#-开源协议)
+[功能特性](#-功能特性) • [下载安装](#-下载与安装) • [技术架构](#-技术架构) • [快速开始](#-快速开始) • [打包构建](#-打包构建) • [CI/CD 自动化](#-cicd-自动化-android-发布) • [开源协议](#-开源协议)
 
 </div>
 
@@ -122,6 +122,20 @@ flutter test
 
 ---
 
+## 📦 下载与安装
+
+前往 [Releases](https://github.com/e69d8e/Cently/releases/latest) 获取最新版本。发布流水线只构建以下三个 Android 安装包：
+
+| 安装包 | 适用设备 | 说明 |
+| --- | --- | --- |
+| `Cently-Android-arm64-v8a.apk` | 绝大多数现代 64 位 Android 手机 | **推荐**，体积最小 |
+| `Cently-Android-armeabi-v7a.apk` | 老旧 32 位 ARM 设备 | 兼容性优先 |
+| `Cently-Android-Universal.apk` | 全部架构（含 x86_64 模拟器） | 通用包，体积稍大 |
+
+> iOS / macOS / Windows / Linux / Web 版本不再随 Releases 发布，如需使用请参考下一节在本地自行编译。
+
+---
+
 ## 📦 打包构建
 
 ### 1. Android 端打包 (全架构与分包)
@@ -129,11 +143,8 @@ flutter test
 # 构建全架构通用 APK (Universal APK)
 flutter build apk --release
 
-# 构建分架构独立 APK (生成 32位 armeabi-v7a、64位 arm64-v8a、64位 x86_64)
-flutter build apk --split-per-abi --release
-
-# 构建 Google Play App Bundle (.aab)
-flutter build appbundle --release
+# 构建分架构独立 APK (生成 32 位 armeabi-v7a 与 64 位 arm64-v8a，与发布流水线一致)
+flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
 ```
 
 #### 🔐 Android 发布签名
@@ -159,10 +170,9 @@ CI 通过以下 **Repository Secrets** 还原签名环境（见 `release.yml` �
 **校验已下载产物的签名**（应与下方指纹完全一致）：
 
 ```bash
-# APK
-apksigner verify --print-certs Cently-Android-Universal-vX.Y.Z.apk
-# AAB
-keytool -printcert -jarfile Cently-Android-vX.Y.Z.aab
+apksigner verify --print-certs Cently-Android-arm64-v8a.apk
+apksigner verify --print-certs Cently-Android-armeabi-v7a.apk
+apksigner verify --print-certs Cently-Android-Universal.apk
 ```
 
 官方签名证书：
@@ -198,34 +208,18 @@ flutter build web --release
 
 ---
 
-## 🤖 CI/CD 自动化全平台发布
+## 🤖 CI/CD 自动化 Android 发布
 
-项目配置了完整的 GitHub Actions 自动化流水线（支持矩阵式多平台与原生安装包构建）：
+项目配置了完整的 GitHub Actions 自动化流水线（只构建 Android 三个 APK）：
 
 - **CI 流水线 (`.github/workflows/ci.yml`)**：在向 `main` 分支提交代码或发起 PR 时，自动执行代码静态分析 (`flutter analyze`) 与单元测试 (`flutter test`)。
 - **Release 流水线 (`.github/workflows/release.yml`)**：
-  - **触发方式**：推送版本标签（例如 `git tag v1.0.4 && git push origin v1.0.4`）或在 GitHub Actions 页面手动触发；
-  - **全平台构建产物矩阵**：
-    - 🤖 **Android**：
-      - `Cently-Android-Universal-v*.apk`（全架构通用版）
-      - `Cently-Android-arm64-v8a-v*.apk`（主流 64 位 ARM 手机，体积更小）
-      - `Cently-Android-armeabi-v7a-v*.apk`（老旧 32 位 ARM 手机）
-      - `Cently-Android-x86_64-v*.apk`（模拟器 / x86_64 架构设备）
-      - `Cently-Android-v*.aab`（Google Play 格式包）
-    - 🍏 **iOS**：
-      - `Cently-iOS-unsigned-v*.ipa`（iOS 独立应用安装包，支持 TrollStore / AltStore / Sideloadly 等自签名分发）
-    - 🪟 **Windows**：
-      - `Cently-Windows-x64-v*-Setup.exe`（Windows 安装向导程序）
-      - `Cently-Windows-x64-v*.zip`（Windows x64 绿色免安装包）
-    - 🍎 **macOS**：
-      - `Cently-macOS-v*.dmg`（macOS 拖拽安装镜像）
-      - `Cently-macOS-v*.zip`（macOS 原生 `.app` 应用压缩包）
-    - 🐧 **Linux**：
-      - `Cently-Linux-amd64-v*.deb`（Debian / Ubuntu 安装包）
-      - `Cently-Linux-x64-v*.tar.gz`（Linux x64 独立运行包）
-    - 🌐 **Web**：
-      - `Cently-Web-v*.zip`（Web 静态部署资源包）
-  - **自动发布**：所有产物自动打包并聚合发布到 [GitHub Releases](https://github.com/e69d8e/Cently/releases)，同时自动生成 Release Notes。
+  - **触发方式**：推送版本标签（例如 `git tag v1.0.4 && git push origin v1.0.4`）或在 GitHub Actions 页面手动触发 `Build & Release`；
+  - **构建产物（仅 Android，三个 APK）**：
+    - 🤖 `Cently-Android-arm64-v8a.apk`（主流 64 位 ARM 手机，体积更小）
+    - 🤖 `Cently-Android-armeabi-v7a.apk`（老旧 32 位 ARM 手机）
+    - 🤖 `Cently-Android-Universal.apk`（全架构通用版，含 x86_64 模拟器）
+  - **自动发布**：先校验 APK 签名指纹，再把三个 APK 自动发布到 [GitHub Releases](https://github.com/e69d8e/Cently/releases)，并自动生成 Release Notes。
 
 ---
 
