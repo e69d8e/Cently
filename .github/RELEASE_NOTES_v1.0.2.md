@@ -6,17 +6,6 @@
 
 ---
 
-### 📋 版本发布信息
-
-- **版本号**：`v1.0.2`（构建版本 `1.0.2+3`）
-- **发布日期**：2026-09-04
-- **Git 标签**：`v1.0.2` (`4762e5b`)
-- **发布地址**：[GitHub Releases v1.0.2](https://github.com/e69d8e/Cently/releases/tag/v1.0.2)
-- **代码对比**：[`v1.0.1...v1.0.2`](https://github.com/e69d8e/Cently/compare/v1.0.1...v1.0.2)
-- **完整提交记录**：[`commits/v1.0.2`](https://github.com/e69d8e/Cently/commits/v1.0.2)
-
----
-
 ### ✨ 新增与优化内容 (Changelog)
 
 #### 1. ⚡️ 记账流水主列表零计算渲染
@@ -48,3 +37,7 @@
 | 🤖 `Cently-Android-Universal-v1.0.2.apk` | 全部架构（含 x86_64 模拟器） | 通用包，体积稍大 |
 
 > iOS / macOS / Windows / Linux / Web 版本不再随 Releases 发布；如需使用请在本地自行编译（见仓库 README 的「打包构建」章节）。
+
+---
+
+**Full Changelog**: https://github.com/e69d8e/Cently/compare/v1.0.1...v1.0.2

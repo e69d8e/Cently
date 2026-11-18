@@ -6,17 +6,6 @@
 
 ---
 
-### 📋 版本发布信息
-
-- **版本号**：`v1.0.5`（构建版本 `1.0.5+6`）
-- **发布日期**：2026-10-02
-- **Git 标签**：`v1.0.5` (`77e1762`)
-- **发布地址**：[GitHub Releases v1.0.5](https://github.com/e69d8e/Cently/releases/tag/v1.0.5)
-- **代码对比**：[`v1.0.4...v1.0.5`](https://github.com/e69d8e/Cently/compare/v1.0.4...v1.0.5)
-- **完整提交记录**：[`commits/v1.0.5`](https://github.com/e69d8e/Cently/commits/v1.0.5)
-
----
-
 ### ✨ 新增与优化内容 (Changelog)
 
 #### 1. 🚀 检查更新功能（自动 + 手动）
@@ -60,3 +49,7 @@
 
 - 本版本**无数据库结构变更**（schema 维持 v6），升级不触碰任何账单、分类与回收站数据。
 - 旧版本数据无缝延续；新增的 `autoCheckUpdate` 等设置键被 v1.0.4 及更早版本忽略，不影响其运行。
+
+---
+
+**Full Changelog**: https://github.com/e69d8e/Cently/compare/v1.0.4...v1.0.5

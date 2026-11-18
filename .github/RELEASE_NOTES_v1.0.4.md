@@ -6,17 +6,6 @@
 
 ---
 
-### 📋 版本发布信息
-
-- **版本号**：`v1.0.4`（构建版本 `1.0.4+5`）
-- **发布日期**：2026-09-29
-- **Git 标签**：`v1.0.4` (`a213587`)
-- **发布地址**：[GitHub Releases v1.0.4](https://github.com/e69d8e/Cently/releases/tag/v1.0.4)
-- **代码对比**：[`v1.0.3...v1.0.4`](https://github.com/e69d8e/Cently/compare/v1.0.3...v1.0.4)
-- **完整提交记录**：[`commits/v1.0.4`](https://github.com/e69d8e/Cently/commits/v1.0.4)
-
----
-
 ### ✨ 新增与优化内容 (Changelog)
 
 #### 1. 🔍 全局检索能力升级（搜索即导航）
@@ -64,3 +53,7 @@
 
 - 本地数据库自动从 **v5 平滑升级至 v6**，仅新增 `app_settings` 键值表（`CREATE TABLE IF NOT EXISTS`），**不触碰任何既有账单、分类与回收站数据**，升级后历史账目完整保留。
 - 旧版本应用的数据可无缝延续使用；如需降级回 v1.0.3 及更早版本，新增的 `app_settings` 表将被忽略，不影响记账功能。
+
+---
+
+**Full Changelog**: https://github.com/e69d8e/Cently/compare/v1.0.3...v1.0.4
