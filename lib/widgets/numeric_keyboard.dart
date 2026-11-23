@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../theme/app_colors.dart';
 import '../utils/currency_format.dart';
 
@@ -47,8 +48,12 @@ class NumericKeyboard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final keyBg = isDark ? AppColors.surfaceMutedDark : AppColors.surfaceLight;
     final keyBorder = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final textColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimary;
-    final actionBg = isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight;
+    final textColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
+    final actionBg = isDark
+        ? AppColors.surfaceMutedDark
+        : AppColors.surfaceMutedLight;
 
     final isPlusActive = amountText.endsWith('+');
     final isMinusActive = amountText.endsWith('-');
@@ -71,7 +76,9 @@ class NumericKeyboard extends StatelessWidget {
                 _buildKey('3', keyBg, keyBorder, textColor),
                 _buildKey(
                   '+',
-                  isPlusActive ? accentColor.withValues(alpha: isDark ? 0.3 : 0.15) : keyBg,
+                  isPlusActive
+                      ? accentColor.withValues(alpha: isDark ? 0.3 : 0.15)
+                      : keyBg,
                   isPlusActive ? accentColor : keyBorder,
                   accentColor,
                   isSpecial: true,
@@ -85,7 +92,9 @@ class NumericKeyboard extends StatelessWidget {
                 _buildKey('6', keyBg, keyBorder, textColor),
                 _buildKey(
                   '-',
-                  isMinusActive ? accentColor.withValues(alpha: isDark ? 0.3 : 0.15) : keyBg,
+                  isMinusActive
+                      ? accentColor.withValues(alpha: isDark ? 0.3 : 0.15)
+                      : keyBg,
                   isMinusActive ? accentColor : keyBorder,
                   accentColor,
                   isSpecial: true,
@@ -108,17 +117,18 @@ class NumericKeyboard extends StatelessWidget {
                   _buildActionKey(
                     '清空',
                     actionBg,
-                    isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                    isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
                     () => onChanged('0'),
                     subtitle: '归零',
                   )
                 else
                   _buildActionKey(
-                    '再记',
+                    '再记一笔',
                     actionBg,
                     accentColor,
                     onSaveAndContinue ?? () {},
-                    subtitle: '连续',
                   ),
                 _buildActionKey(
                   '完成',
@@ -169,7 +179,9 @@ class NumericKeyboard extends StatelessWidget {
                       label,
                       style: TextStyle(
                         fontSize: isSpecial ? 20 : 22,
-                        fontWeight: isSpecial ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSpecial
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         fontFeatures: const [FontFeature.tabularFigures()],
                         color: textCol,
                       ),

@@ -31,9 +31,8 @@ class SettingsScreen extends StatelessWidget {
               Navigator.pop(ctx);
               await txProvider.clearAll();
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已清空所有记账记录')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('已清空所有记账记录')));
               }
             },
             child: const Text('确认清空'),
@@ -52,9 +51,7 @@ class SettingsScreen extends StatelessWidget {
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('设置与管理'),
-      ),
+      appBar: AppBar(title: const Text('设置与管理')),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
@@ -75,16 +72,16 @@ class SettingsScreen extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: isDark ? AppColors.primaryOnDark : AppColors.primary,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       '厘',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: isDark ? AppColors.backgroundDark : Colors.white,
                       ),
                     ),
                   ),
@@ -96,28 +93,42 @@ class SettingsScreen extends StatelessWidget {
                     children: [
                       const Text(
                         'Cently · 分厘',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '无后端 · 纯本地 · 极简记账',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.income.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
+                  child: Text(
                     '离线安全',
-                    style: TextStyle(fontSize: 11, color: AppColors.income, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? AppColors.incomeTextDark
+                          : AppColors.incomeText,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -134,7 +145,9 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.category_outlined),
                 title: const Text('类型与名称管理'),
-                subtitle: Text('共 ${catProvider.categories.length} 个分类，管理分类与专属预设名称'),
+                subtitle: Text(
+                  '共 ${catProvider.categories.length} 个分类，管理分类与专属预设名称',
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () {
                   Navigator.push(
@@ -207,7 +220,10 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     if (txProvider.deletedCount > 0)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         margin: const EdgeInsets.only(right: 6),
                         decoration: BoxDecoration(
                           color: AppColors.income.withValues(alpha: 0.12),
@@ -245,8 +261,14 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: AppColors.expense),
-                title: const Text('清空所有记账记录', style: TextStyle(color: AppColors.expense)),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.expense,
+                ),
+                title: const Text(
+                  '清空所有记账记录',
+                  style: TextStyle(color: AppColors.expense),
+                ),
                 subtitle: const Text('重置账单流水，保留分类与预设配置'),
                 onTap: () => _confirmClearData(context, txProvider),
               ),
@@ -287,7 +309,10 @@ class SettingsScreen extends StatelessWidget {
             )
           : null,
       onTap: () {
-        Provider.of<SettingsProvider>(context, listen: false).setThemeMode(mode);
+        Provider.of<SettingsProvider>(
+          context,
+          listen: false,
+        ).setThemeMode(mode);
       },
     );
   }
@@ -307,11 +332,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Widget _buildCard(bool isDark, {required List<Widget> children}) {
-    return Card(
-      child: Column(
-        children: children,
-      ),
-    );
+    return Card(child: Column(children: children));
   }
 }
 
@@ -390,16 +411,14 @@ class _AboutSectionCardState extends State<_AboutSectionCard> {
           currentVersion: _appVersion,
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前已是最新版本')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
       }
     } catch (e) {
       debugPrint('Manual update check failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('检查更新失败，请检查网络连接')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('检查更新失败，请检查网络连接')));
       }
     } finally {
       if (mounted) setState(() => _checking = false);

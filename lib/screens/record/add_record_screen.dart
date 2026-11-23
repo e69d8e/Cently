@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +30,8 @@ class RecordSaveResult {
 
 class AddRecordScreen extends StatefulWidget {
   final TransactionRecord? initialRecord; // If editing
-  final Category? initialCategory; // If pre-filling category (e.g. repeat record)
+  final Category?
+  initialCategory; // If pre-filling category (e.g. repeat record)
   final String? initialName; // If pre-filling item name
 
   const AddRecordScreen({
@@ -59,7 +62,10 @@ class AddRecordScreen extends StatefulWidget {
     // 保存成功后给出全局反馈：ScaffoldMessenger 位于 Navigator 之上，
     // 弹窗关闭后 SnackBar 依然可见；新记账支持一键彻底撤销。
     if (result != null && context.mounted) {
-      final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+      final txProvider = Provider.of<TransactionProvider>(
+        context,
+        listen: false,
+      );
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -77,7 +83,7 @@ class AddRecordScreen extends StatefulWidget {
                 ? null
                 : SnackBarAction(
                     label: '撤销',
-                    textColor: AppColors.income,
+                    textColor: AppColors.incomeTextDark,
                     onPressed: () {
                       txProvider.permanentlyDeleteTransaction(result.record.id);
                     },
@@ -108,6 +114,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   String? _cachedPresetCategoryId;
   List<PresetItem> _cachedSortedPresets = const [];
   bool _isCategoryGridExpanded = false;
+  String? _amountError;
+  String? _saveNotice;
+  Timer? _noticeTimer;
 
   @override
   void initState() {
@@ -131,7 +140,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       _isCustomDateTime = false;
       _amountExpression = '0';
       _isInitialAmountState = false;
-      _isCustomNameActive = (widget.initialName != null && widget.initialName!.isNotEmpty);
+      _isCustomNameActive =
+          (widget.initialName != null && widget.initialName!.isNotEmpty);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -164,6 +174,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
   @override
   void dispose() {
+    _noticeTimer?.cancel();
     _nameFocusNode.dispose();
     _remarkFocusNode.dispose();
     _keyboardFocusNode.dispose();
@@ -177,6 +188,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     HapticFeedback.selectionClick();
     setState(() {
       _type = type;
+      _amountError = null;
+      _saveNotice = null;
       _isCustomNameActive = false;
       _cachedPresetCategoryId = null;
       final catProvider = Provider.of<CategoryProvider>(context, listen: false);
@@ -195,6 +208,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   void _onCategorySelected(Category category) {
     setState(() {
       _selectedCategory = category;
+      _amountError = null;
+      _saveNotice = null;
       _cachedPresetCategoryId = null;
       final catProvider = Provider.of<CategoryProvider>(context, listen: false);
       final presets = catProvider.getPresetsForCategory(category.id);
@@ -225,6 +240,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         isInitialState: _isInitialAmountState,
       );
       _isInitialAmountState = false;
+      _amountError = null;
+      _saveNotice = null;
     });
   }
 
@@ -246,7 +263,10 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
       if (currentAmount != initial.amount) return true;
       if (_type != initial.type) return true;
-      if (_selectedCategory != null && _selectedCategory!.id != initial.categoryId) return true;
+      if (_selectedCategory != null &&
+          _selectedCategory!.id != initial.categoryId) {
+        return true;
+      }
       if (currentName != initial.name) return true;
       if (currentRemark != initial.remark) return true;
       if (_selectedDateTime != initial.dateTime) return true;
@@ -287,9 +307,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'discard'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.expense,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.expense),
               child: const Text('不保存'),
             ),
             FilledButton(
@@ -307,10 +325,12 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         if (saved != null && mounted) {
           _isForceClosing = true;
           setState(() {});
-          Navigator.of(context).pop(RecordSaveResult(
-            record: saved,
-            isEdit: widget.initialRecord != null,
-          ));
+          Navigator.of(context).pop(
+            RecordSaveResult(
+              record: saved,
+              isEdit: widget.initialRecord != null,
+            ),
+          );
         }
       } else if (action == 'discard') {
         _isForceClosing = true;
@@ -340,11 +360,14 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     }
 
     // If focus is inside a TextField (name or remark), do NOT intercept keypad events
-    if (!_keyboardFocusNode.hasPrimaryFocus || _nameFocusNode.hasFocus || _remarkFocusNode.hasFocus) {
+    if (!_keyboardFocusNode.hasPrimaryFocus ||
+        _nameFocusNode.hasFocus ||
+        _remarkFocusNode.hasFocus) {
       return KeyEventResult.ignored;
     }
 
-    if (logicalKey == LogicalKeyboardKey.enter || logicalKey == LogicalKeyboardKey.numpadEnter) {
+    if (logicalKey == LogicalKeyboardKey.enter ||
+        logicalKey == LogicalKeyboardKey.numpadEnter) {
       _onDoneSave();
       return KeyEventResult.handled;
     }
@@ -363,55 +386,68 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     }
 
     // Direct logical key mappings for numbers and operators
-    if (logicalKey == LogicalKeyboardKey.digit0 || logicalKey == LogicalKeyboardKey.numpad0) {
+    if (logicalKey == LogicalKeyboardKey.digit0 ||
+        logicalKey == LogicalKeyboardKey.numpad0) {
       _handleKeyPress('0');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit1 || logicalKey == LogicalKeyboardKey.numpad1) {
+    if (logicalKey == LogicalKeyboardKey.digit1 ||
+        logicalKey == LogicalKeyboardKey.numpad1) {
       _handleKeyPress('1');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit2 || logicalKey == LogicalKeyboardKey.numpad2) {
+    if (logicalKey == LogicalKeyboardKey.digit2 ||
+        logicalKey == LogicalKeyboardKey.numpad2) {
       _handleKeyPress('2');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit3 || logicalKey == LogicalKeyboardKey.numpad3) {
+    if (logicalKey == LogicalKeyboardKey.digit3 ||
+        logicalKey == LogicalKeyboardKey.numpad3) {
       _handleKeyPress('3');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit4 || logicalKey == LogicalKeyboardKey.numpad4) {
+    if (logicalKey == LogicalKeyboardKey.digit4 ||
+        logicalKey == LogicalKeyboardKey.numpad4) {
       _handleKeyPress('4');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit5 || logicalKey == LogicalKeyboardKey.numpad5) {
+    if (logicalKey == LogicalKeyboardKey.digit5 ||
+        logicalKey == LogicalKeyboardKey.numpad5) {
       _handleKeyPress('5');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit6 || logicalKey == LogicalKeyboardKey.numpad6) {
+    if (logicalKey == LogicalKeyboardKey.digit6 ||
+        logicalKey == LogicalKeyboardKey.numpad6) {
       _handleKeyPress('6');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit7 || logicalKey == LogicalKeyboardKey.numpad7) {
+    if (logicalKey == LogicalKeyboardKey.digit7 ||
+        logicalKey == LogicalKeyboardKey.numpad7) {
       _handleKeyPress('7');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit8 || logicalKey == LogicalKeyboardKey.numpad8) {
+    if (logicalKey == LogicalKeyboardKey.digit8 ||
+        logicalKey == LogicalKeyboardKey.numpad8) {
       _handleKeyPress('8');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.digit9 || logicalKey == LogicalKeyboardKey.numpad9) {
+    if (logicalKey == LogicalKeyboardKey.digit9 ||
+        logicalKey == LogicalKeyboardKey.numpad9) {
       _handleKeyPress('9');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.add || logicalKey == LogicalKeyboardKey.numpadAdd) {
+    if (logicalKey == LogicalKeyboardKey.add ||
+        logicalKey == LogicalKeyboardKey.numpadAdd) {
       _handleKeyPress('+');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.minus || logicalKey == LogicalKeyboardKey.numpadSubtract) {
+    if (logicalKey == LogicalKeyboardKey.minus ||
+        logicalKey == LogicalKeyboardKey.numpadSubtract) {
       _handleKeyPress('-');
       return KeyEventResult.handled;
     }
-    if (logicalKey == LogicalKeyboardKey.period || logicalKey == LogicalKeyboardKey.numpadDecimal) {
+    if (logicalKey == LogicalKeyboardKey.period ||
+        logicalKey == LogicalKeyboardKey.numpadDecimal) {
       _handleKeyPress('.');
       return KeyEventResult.handled;
     }
@@ -435,13 +471,15 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   Future<TransactionRecord?> _saveRecord() async {
     final amount = _parseAmount();
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('请输入有效金额'),
-          duration: Duration(milliseconds: 1500),
-        ),
-      );
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _amountError = '请输入有效金额';
+        _saveNotice = null;
+      });
       return null;
+    }
+    if (_amountError != null) {
+      setState(() => _amountError = null);
     }
 
     if (_selectedCategory == null) {
@@ -516,27 +554,27 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     if (saved != null && mounted) {
       _isForceClosing = true;
       setState(() {});
-      Navigator.pop(context, RecordSaveResult(
-        record: saved,
-        isEdit: widget.initialRecord != null,
-      ));
+      Navigator.pop(
+        context,
+        RecordSaveResult(record: saved, isEdit: widget.initialRecord != null),
+      );
     }
   }
 
   void _onSaveAndContinue() async {
     final saved = await _saveRecord();
     if (saved != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已记录：${saved.name} ¥${saved.amount.toStringAsFixed(2)}'),
-          duration: const Duration(milliseconds: 1000),
-        ),
-      );
+      _noticeTimer?.cancel();
+      _noticeTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) setState(() => _saveNotice = null);
+      });
       setState(() {
         _amountExpression = '0';
         _isInitialAmountState = false;
         _remarkController.clear();
         _cachedPresetCategoryId = null;
+        _amountError = null;
+        _saveNotice = '已记录：${saved.name} ¥${saved.amount.toStringAsFixed(2)}';
       });
     }
   }
@@ -580,7 +618,10 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   }
 
   Future<void> _selectDateTime() async {
-    final picked = await RecordDateTimePickerSheet.show(context, _selectedDateTime);
+    final picked = await RecordDateTimePickerSheet.show(
+      context,
+      _selectedDateTime,
+    );
     if (picked != null && mounted) {
       setState(() {
         _selectedDateTime = picked;
@@ -601,22 +642,33 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
     // Synchronize selected category if none selected or if not in current category list
     if (currentCategories.isNotEmpty) {
-      if (_selectedCategory == null || !currentCategories.any((c) => c.id == _selectedCategory!.id)) {
+      if (_selectedCategory == null ||
+          !currentCategories.any((c) => c.id == _selectedCategory!.id)) {
         if (widget.initialRecord != null && _selectedCategory == null) {
-          final matched = catProvider.getCategoryById(widget.initialRecord!.categoryId);
+          final matched = catProvider.getCategoryById(
+            widget.initialRecord!.categoryId,
+          );
           _selectedCategory = matched ?? currentCategories.first;
         } else {
           _selectedCategory = currentCategories.first;
         }
         if (!_isCustomNameActive && _nameController.text.isEmpty) {
-          final presets = catProvider.getPresetsForCategory(_selectedCategory!.id);
-          _nameController.text = presets.isNotEmpty ? presets.first.name : _selectedCategory!.name;
+          final presets = catProvider.getPresetsForCategory(
+            _selectedCategory!.id,
+          );
+          _nameController.text = presets.isNotEmpty
+              ? presets.first.name
+              : _selectedCategory!.name;
         }
       }
     }
 
     final txProvider = Provider.of<TransactionProvider>(context, listen: false);
-    final currentPresets = _getSortedPresets(_selectedCategory, catProvider, txProvider);
+    final currentPresets = _getSortedPresets(
+      _selectedCategory,
+      catProvider,
+      txProvider,
+    );
 
     final accentColor = _type == CategoryType.expense
         ? AppColors.expense
@@ -646,9 +698,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => CategoryDetailScreen(
-                        category: _selectedCategory!,
-                      ),
+                      builder: (context) =>
+                          CategoryDetailScreen(category: _selectedCategory!),
                     ),
                   );
                 }
@@ -674,15 +725,21 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 onKeyEvent: _handleKeyEvent,
                 child: Column(
                   children: [
-                    // Amount & Info Banner
-                    _buildAmountDisplay(accentColor, isDark),
-
-                    // Category Selector (Horizontal Scroll / Grid)
-                    _buildCategoryList(currentCategories, isDark),
-
-                    // Preset Names and Custom Input Area
                     Expanded(
-                      child: _buildNameAndRemarkSection(currentPresets, isDark),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Amount & Info Banner
+                            _buildAmountDisplay(accentColor, isDark),
+
+                            // Category Selector (Horizontal Scroll / Grid)
+                            _buildCategoryList(currentCategories, isDark),
+
+                            // Preset Names and Custom Input Area
+                            _buildNameAndRemarkSection(currentPresets, isDark),
+                          ],
+                        ),
+                      ),
                     ),
 
                     // Integrated Custom Calculator Keyboard
@@ -715,13 +772,13 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     final isExpense = _type == CategoryType.expense;
 
     return Container(
-      height: 36,
+      height: 40,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? AppColors.surfaceMutedDark
             : AppColors.surfaceMutedLight,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -743,21 +800,28 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     Color activeColor,
     VoidCallback onTap,
   ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+    final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+          decoration: BoxDecoration(
+            color: isSelected ? activeColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected ? Colors.white : mutedColor,
+            ),
           ),
         ),
       ),
@@ -768,6 +832,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     final clean = _amountExpression.replaceAll(',', '').trim();
     final hasOp = CurrencyFormat.hasPendingCalculation(clean);
     final calculated = hasOp ? CurrencyFormat.parseExpression(clean) : null;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -809,42 +874,64 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               else
                 const SizedBox(),
               // Date Chip Button
-              InkWell(
-                onTap: _selectDateTime,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _isCustomDateTime
-                        ? AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1)
-                        : (isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight),
-                    borderRadius: BorderRadius.circular(12),
-                    border: _isCustomDateTime
-                        ? Border.all(color: AppColors.primary.withValues(alpha: 0.6), width: 1)
-                        : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _isCustomDateTime ? Icons.edit_calendar_rounded : Icons.access_time_rounded,
-                        size: 13,
-                        color: _isCustomDateTime
-                            ? AppColors.primary
-                            : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondary),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        DateFormatHelper.formatRelativeDateTime(_selectedDateTime),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: _isCustomDateTime ? FontWeight.w600 : FontWeight.w500,
+              Tooltip(
+                message: '选择日期时间',
+                child: InkWell(
+                  onTap: _selectDateTime,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 40),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isCustomDateTime
+                          ? primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
+                          : (isDark
+                                ? AppColors.surfaceMutedDark
+                                : AppColors.surfaceMutedLight),
+                      borderRadius: BorderRadius.circular(12),
+                      border: _isCustomDateTime
+                          ? Border.all(
+                              color: primaryColor.withValues(alpha: 0.6),
+                              width: 1,
+                            )
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isCustomDateTime
+                              ? Icons.edit_calendar_rounded
+                              : Icons.access_time_rounded,
+                          size: 13,
                           color: _isCustomDateTime
-                              ? AppColors.primary
-                              : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+                              ? primaryColor
+                              : (isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondary),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(
+                          DateFormatHelper.formatRelativeDateTime(
+                            _selectedDateTime,
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: _isCustomDateTime
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: _isCustomDateTime
+                                ? primaryColor
+                                : (isDark
+                                      ? AppColors.textPrimaryDark
+                                      : AppColors.textPrimary),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -880,7 +967,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                           fontSize: 42,
                           fontWeight: FontWeight.w700,
                           fontFeatures: const [FontFeature.tabularFigures()],
-                          color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimary,
                           letterSpacing: -1,
                         ),
                       ),
@@ -902,6 +991,27 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               ),
             ],
           ),
+          if (_amountError != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _amountError!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ] else if (_saveNotice != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _saveNotice!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isDark ? AppColors.incomeTextDark : AppColors.incomeText,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -925,51 +1035,64 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           ),
         ),
       ),
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!_isCategoryGridExpanded)
-            ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 6, 56, 6),
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 14),
-              itemBuilder: (context, index) => _buildCategoryItem(categories[index], isDark),
-            )
-          else
-            GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 10, 56, 10),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 5,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 8,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: categories.length,
-              itemBuilder: (context, index) => _buildCategoryItem(categories[index], isDark),
-            ),
-          // Expand / Collapse Category Button
-          Positioned(
-            right: 8,
-            top: 10,
-            child: Material(
-              color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
-              borderRadius: BorderRadius.circular(10),
-              child: InkWell(
+          Expanded(
+            child: _isCategoryGridExpanded
+                ? GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 0.85,
+                        ),
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) =>
+                        _buildCategoryItem(categories[index], isDark),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categories.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 14),
+                    itemBuilder: (context, index) =>
+                        _buildCategoryItem(categories[index], isDark),
+                  ),
+          ),
+          // Expand / Collapse Category Button — 独立占位，不再覆盖分类点击区
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 10, 8, 0),
+            child: Tooltip(
+              message: _isCategoryGridExpanded ? '收起分类' : '展开分类',
+              child: Material(
+                color: isDark
+                    ? AppColors.surfaceMutedDark
+                    : AppColors.surfaceMutedLight,
                 borderRadius: BorderRadius.circular(10),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _isCategoryGridExpanded = !_isCategoryGridExpanded;
-                  });
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(7),
-                  child: Icon(
-                    _isCategoryGridExpanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.grid_view_rounded,
-                    size: 18,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _isCategoryGridExpanded = !_isCategoryGridExpanded;
+                    });
+                  },
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      _isCategoryGridExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.grid_view_rounded,
+                      size: 20,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -982,60 +1105,74 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
   Widget _buildCategoryItem(Category cat, bool isDark) {
     final isSelected = _selectedCategory?.id == cat.id;
-    return GestureDetector(
-      onTap: () => _onCategorySelected(cat),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: isSelected ? cat.color : cat.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-              border: isSelected
-                  ? Border.all(color: isDark ? Colors.white : cat.color, width: 2)
-                  : null,
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: cat.color.withValues(alpha: 0.35),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Center(
-              child: Icon(
-                AppIcons.getIcon(cat.iconKey),
-                color: isSelected ? Colors.white : cat.color,
-                size: 20,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: cat.name,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => _onCategorySelected(cat),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? cat.color
+                    : cat.color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: isSelected
+                    ? Border.all(
+                        color: isDark ? Colors.white : cat.color,
+                        width: 2,
+                      )
+                    : null,
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: cat.color.withValues(alpha: 0.35),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Icon(
+                  AppIcons.getIcon(cat.iconKey),
+                  color: isSelected ? Colors.white : cat.color,
+                  size: 20,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            cat.name,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected
-                  ? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary)
-                  : AppColors.textSecondary,
+            const SizedBox(height: 4),
+            Text(
+              cat.name,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected
+                    ? (isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.textPrimary)
+                    : AppColors.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildNameAndRemarkSection(List<PresetItem> presets, bool isDark) {
-    return SingleChildScrollView(
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1049,37 +1186,47 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  color: isDark
+                      ? AppColors.textSecondaryDark
+                      : AppColors.textSecondary,
                 ),
               ),
               if (_selectedCategory != null)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CategoryDetailScreen(
-                          category: _selectedCategory!,
+                Semantics(
+                  button: true,
+                  label: '管理预设名称',
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CategoryDetailScreen(
+                            category: _selectedCategory!,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.add_circle_outline_rounded,
-                        size: 13,
-                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '管理预设',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline_rounded,
+                          size: 13,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          '管理预设',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -1100,13 +1247,17 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                     label: Text(item.name),
                     selected: isSelected,
                     onSelected: (_) => _onPresetChipTapped(item),
-                    selectedColor: isDark ? AppColors.primaryLight : AppColors.primary,
+                    selectedColor: scheme.primary,
                     labelStyle: TextStyle(
                       fontSize: 13,
                       color: isSelected
-                          ? Colors.white
-                          : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          ? scheme.onPrimary
+                          : (isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimary),
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                     backgroundColor: isDark
                         ? AppColors.surfaceMutedDark
@@ -1114,12 +1265,18 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                       side: isSelected
-                          ? BorderSide(color: isDark ? Colors.white54 : AppColors.primary, width: 1)
+                          ? BorderSide(
+                              color: scheme.onPrimary.withValues(alpha: 0.45),
+                              width: 1,
+                            )
                           : BorderSide.none,
                     ),
                     showCheckmark: isSelected,
-                    checkmarkColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    checkmarkColor: scheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                   );
                 }),
               ],
@@ -1129,85 +1286,106 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           const SizedBox(height: 14),
 
           // Custom Name Input Field
-          TextField(
-            controller: _nameController,
-            focusNode: _nameFocusNode,
-            textInputAction: TextInputAction.next,
-            onChanged: (text) {
-              setState(() {
-                _isCustomNameActive = true;
-              });
-            },
-            onSubmitted: (_) {
-              _remarkFocusNode.requestFocus();
-            },
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: '自定义名称 (如：生椰拿铁 / 打车回学校)',
-              hintStyle: TextStyle(
-                fontSize: 13,
-                color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiary,
+          Semantics(
+            label: '记账名称',
+            child: TextField(
+              controller: _nameController,
+              focusNode: _nameFocusNode,
+              textInputAction: TextInputAction.next,
+              onChanged: (text) {
+                setState(() {
+                  _isCustomNameActive = true;
+                });
+              },
+              onSubmitted: (_) {
+                _remarkFocusNode.requestFocus();
+              },
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: '自定义名称 (如：生椰拿铁 / 打车回学校)',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? AppColors.textTertiaryDark
+                      : AppColors.textTertiary,
+                ),
+                prefixIcon: const Icon(Icons.edit_outlined, size: 18),
+                suffixIcon: _nameController.text.isNotEmpty
+                    ? IconButton(
+                        tooltip: '清空名称',
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          setState(() {
+                            _nameController.clear();
+                          });
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: isDark
+                    ? AppColors.surfaceMutedDark
+                    : AppColors.surfaceMutedLight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
-              prefixIcon: const Icon(Icons.edit_outlined, size: 18),
-              suffixIcon: _nameController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: () {
-                        setState(() {
-                          _nameController.clear();
-                        });
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
           ),
-
           const SizedBox(height: 10),
 
           // Optional Remark Input Field
-          TextField(
-            controller: _remarkController,
-            focusNode: _remarkFocusNode,
-            textInputAction: TextInputAction.done,
-            onChanged: (text) {
-              setState(() {});
-            },
-            onSubmitted: (_) {
-              FocusScope.of(context).unfocus();
-              _keyboardFocusNode.requestFocus();
-            },
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: '添加备注 (选填)...',
-              hintStyle: TextStyle(
-                fontSize: 13,
-                color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiary,
+          Semantics(
+            label: '备注（选填）',
+            child: TextField(
+              controller: _remarkController,
+              focusNode: _remarkFocusNode,
+              textInputAction: TextInputAction.done,
+              onChanged: (text) {
+                setState(() {});
+              },
+              onSubmitted: (_) {
+                FocusScope.of(context).unfocus();
+                _keyboardFocusNode.requestFocus();
+              },
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: '添加备注 (选填)...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? AppColors.textTertiaryDark
+                      : AppColors.textTertiary,
+                ),
+                prefixIcon: const Icon(Icons.notes_rounded, size: 18),
+                suffixIcon: _remarkController.text.isNotEmpty
+                    ? IconButton(
+                        tooltip: '清空备注',
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          setState(() {
+                            _remarkController.clear();
+                          });
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: isDark
+                    ? AppColors.surfaceMutedDark
+                    : AppColors.surfaceMutedLight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
-              prefixIcon: const Icon(Icons.notes_rounded, size: 18),
-              suffixIcon: _remarkController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: () {
-                        setState(() {
-                          _remarkController.clear();
-                        });
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
           ),
         ],

@@ -76,9 +76,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
           TextButton(
@@ -132,7 +130,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final catProvider = Provider.of<CategoryProvider>(context);
-    final currentCat = catProvider.getCategoryById(widget.category.id) ?? widget.category;
+    final currentCat =
+        catProvider.getCategoryById(widget.category.id) ?? widget.category;
     final presets = catProvider.getPresetsForCategory(currentCat.id);
 
     return Scaffold(
@@ -152,7 +151,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           ),
           IconButton(
             tooltip: '删除分类',
-            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.expense),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.expense,
+            ),
             onPressed: () => _confirmDeleteCategory(context, catProvider),
           ),
         ],
@@ -203,7 +205,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('加名称'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    minimumSize: const Size(0, 44),
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
@@ -221,14 +227,18 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                    color: isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondary,
                   ),
                 ),
                 Text(
                   '长按可拖动排序',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiary,
+                    color: isDark
+                        ? AppColors.textTertiaryDark
+                        : AppColors.textTertiary,
                   ),
                 ),
               ],
@@ -242,19 +252,27 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.label_off_outlined, size: 40, color: AppColors.textTertiary),
+                        const Icon(
+                          Icons.label_off_outlined,
+                          size: 40,
+                          color: AppColors.textTertiary,
+                        ),
                         const SizedBox(height: 12),
                         const Text('暂无预设名称'),
                         const SizedBox(height: 12),
                         FilledButton(
-                          onPressed: () => _showAddPresetDialog(context, catProvider),
+                          onPressed: () =>
+                              _showAddPresetDialog(context, catProvider),
                           child: const Text('立即添加'),
                         ),
                       ],
                     ),
                   )
                 : ReorderableListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     itemCount: presets.length,
                     onReorderItem: (oldIndex, newIndex) {
                       catProvider.reorderPresetItems(
@@ -269,16 +287,23 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                         key: ValueKey(item.id),
                         margin: const EdgeInsets.only(bottom: 8),
                         child: Material(
-                          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                          color: isDark
+                              ? AppColors.surfaceDark
+                              : AppColors.surfaceLight,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.borderLight,
                               width: 1,
                             ),
                           ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 2,
+                            ),
                             leading: Container(
                               width: 32,
                               height: 32,
@@ -299,23 +324,54 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                             ),
                             title: Text(
                               item.name,
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 15,
+                              ),
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18),
-                                  onPressed: () => _showEditPresetDialog(context, catProvider, item),
+                                  tooltip: '编辑预设名称',
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => _showEditPresetDialog(
+                                    context,
+                                    catProvider,
+                                    item,
+                                  ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.expense),
+                                  tooltip: '删除预设名称',
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: AppColors.expense,
+                                  ),
                                   onPressed: () {
-                                    catProvider.deletePresetItem(currentCat.id, item.id);
+                                    catProvider.deletePresetItem(
+                                      currentCat.id,
+                                      item.id,
+                                    );
                                   },
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.drag_handle_rounded, size: 20, color: AppColors.textTertiary),
+                                const Icon(
+                                  Icons.drag_handle_rounded,
+                                  size: 20,
+                                  color: AppColors.textTertiary,
+                                ),
                               ],
                             ),
                           ),

@@ -57,12 +57,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<bool?> _showDeleteConfirmDialog(BuildContext context, TransactionRecord record) {
+  Future<bool?> _showDeleteConfirmDialog(
+    BuildContext context,
+    TransactionRecord record,
+  ) {
     return showDialog<bool>(
       context: context,
       builder: (confirmCtx) => AlertDialog(
         title: const Text('删除此笔记录？'),
-        content: Text('确认删除「${record.name}」¥${CurrencyFormat.format(record.amount, showSymbol: false)} 的记账记录？'),
+        content: Text(
+          '确认删除「${record.name}」¥${CurrencyFormat.format(record.amount, showSymbol: false)} 的记账记录？',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(confirmCtx, false),
@@ -114,7 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 CategoryIconWidget(
                   iconKey: category?.iconKey ?? 'category',
-                  color: category?.color ?? (isExpense ? AppColors.expense : AppColors.income),
+                  color:
+                      category?.color ??
+                      (isExpense ? AppColors.expense : AppColors.income),
                   size: 52,
                   iconSize: 26,
                 ),
@@ -125,7 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         record.name,
-                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -149,7 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const Divider(),
             const SizedBox(height: 14),
 
-            _buildDetailRow('记录时间', '${DateFormatHelper.formatDayHeader(record.dateTime)} ${DateFormatHelper.formatTime(record.dateTime)}', isDark),
+            _buildDetailRow(
+              '记录时间',
+              '${DateFormatHelper.formatDayHeader(record.dateTime)} ${DateFormatHelper.formatTime(record.dateTime)}',
+              isDark,
+            ),
             if (record.remark != null && record.remark!.isNotEmpty) ...[
               const SizedBox(height: 10),
               _buildDetailRow('备注信息', record.remark!, isDark),
@@ -164,12 +177,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       foregroundColor: AppColors.expense,
                       side: const BorderSide(color: AppColors.expense),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     icon: const Icon(Icons.delete_outline_rounded, size: 18),
                     label: const Text('删除'),
                     onPressed: () async {
-                      final confirmed = await _showDeleteConfirmDialog(context, record);
+                      final confirmed = await _showDeleteConfirmDialog(
+                        context,
+                        record,
+                      );
 
                       if (confirmed == true && context.mounted) {
                         Navigator.pop(ctx);
@@ -185,9 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               dismissDirection: DismissDirection.horizontal,
                               action: SnackBarAction(
                                 label: '撤销',
-                                textColor: AppColors.income,
+                                textColor: AppColors.incomeTextDark,
                                 onPressed: () {
-                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context)
+                                      .hideCurrentSnackBar();
                                   txProvider.restoreTransaction(record.id);
                                 },
                               ),
@@ -202,10 +221,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? AppColors.textPrimaryDark : AppColors.primary,
-                      side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                      foregroundColor: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.primary,
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.borderDark
+                            : AppColors.borderLight,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     icon: const Icon(Icons.copy_rounded, size: 16),
                     label: const Text('再记一笔'),
@@ -223,9 +250,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     icon: const Icon(Icons.edit_outlined, size: 18),
                     label: const Text('编辑'),
@@ -253,7 +282,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondary,
             ),
           ),
         ),
@@ -283,7 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _isSearching = true;
       _searchAutofocus = false;
       _searchController.text = txProvider.searchQuery;
-    } else if (_isSearching && _searchController.text != txProvider.searchQuery) {
+    } else if (_isSearching &&
+        _searchController.text != txProvider.searchQuery) {
       // 搜索栏已展开但搜索词被外部更新（统计页跳转），同步输入框内容
       _searchController.text = txProvider.searchQuery;
     }
@@ -291,7 +323,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final sortedGroups = txProvider.sortedDailyGroups;
 
     final now = DateTime.now();
-    final isCurrentPeriod = (!txProvider.isDayMode &&
+    final isCurrentPeriod =
+        (!txProvider.isDayMode &&
             txProvider.selectedMonth.year == now.year &&
             txProvider.selectedMonth.month == now.month) ||
         (txProvider.isDayMode &&
@@ -327,9 +360,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 Flexible(
                   child: Text(
                     txProvider.isDayMode
-                        ? DateFormatHelper.formatDayHeader(txProvider.selectedDay!, showYear: true)
-                        : DateFormatHelper.formatMonth(txProvider.selectedMonth),
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                        ? DateFormatHelper.formatDayHeader(
+                            txProvider.selectedDay!,
+                          )
+                        : DateFormatHelper.formatMonth(
+                            txProvider.selectedMonth,
+                          ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -345,7 +385,10 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(right: 2),
               child: TextButton(
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
                   minimumSize: const Size(32, 32),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -358,12 +401,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.08),
+                    color: Theme.of(context).colorScheme.primary
+                        .withValues(alpha: isDark ? 0.25 : 0.08),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: AppColors.primary.withValues(alpha: isDark ? 0.4 : 0.2),
+                      color: Theme.of(context).colorScheme.primary
+                          .withValues(alpha: isDark ? 0.4 : 0.2),
                       width: 1,
                     ),
                   ),
@@ -372,7 +420,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
+                      color: isDark
+                          ? AppColors.textPrimaryDark
+                          : AppColors.primary,
                     ),
                   ),
                 ),
@@ -438,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       autofocus: _searchAutofocus,
                       onChanged: (val) => txProvider.setSearchQuery(val),
                       decoration: InputDecoration(
-                        hintText: '搜索分类、名称或备注...',
+                        hintText: '搜索本月分类、名称或备注...',
                         prefixIcon: const Icon(Icons.search_rounded, size: 20),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
@@ -451,7 +501,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             : null,
                         isDense: true,
                         filled: true,
-                        fillColor: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
+                        fillColor: isDark
+                            ? AppColors.surfaceMutedDark
+                            : AppColors.surfaceMutedLight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -463,11 +515,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 4),
                         child: Text(
-                          '共匹配到 ${sortedGroups.fold<int>(0, (sum, g) => sum + g.records.length)} 笔记录',
+                          '本月共匹配到 ${sortedGroups.fold<int>(0, (sum, g) => sum + g.records.length)} 笔记录',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ),
@@ -476,83 +530,111 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-          // Day Mode Filter Banner (if filtered to specific day)
-          if (txProvider.isDayMode)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.event_note_rounded, size: 16, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        '当前单日视图：${DateFormatHelper.formatDayHeader(txProvider.selectedDay!, showYear: true)}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                  InkWell(
-                    onTap: () => txProvider.clearSelectedDay(),
-                    borderRadius: BorderRadius.circular(8),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      child: Row(
-                        children: [
-                          Text(
-                            '查看整月',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
+            // Day Mode Filter Banner (if filtered to specific day)
+            if (txProvider.isDayMode)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.surfaceMutedDark
+                      : AppColors.surfaceMutedLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.event_note_rounded,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '当前单日视图：${DateFormatHelper.formatDayHeader(txProvider.selectedDay!)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
-                          SizedBox(width: 2),
-                          Icon(Icons.close_rounded, size: 14, color: AppColors.primary),
-                        ],
+                        ),
+                      ],
+                    ),
+                    InkWell(
+                      onTap: () => txProvider.clearSelectedDay(),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              '查看整月',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-          // Monthly / Daily Summary Card
-          _buildMonthlySummaryCard(txProvider, isDark),
+            // Monthly / Daily Summary Card
+            _buildMonthlySummaryCard(txProvider, isDark),
 
-          // Category Quick Filter Bar (if filtered)
-          if (txProvider.filterCategoryId != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              color: isDark ? AppColors.surfaceDark : AppColors.surfaceMutedLight,
-              child: Row(
-                children: [
-                  const Text('已筛选分类', style: TextStyle(fontSize: 12)),
-                  const SizedBox(width: 8),
-                  Chip(
-                    label: Text(
-                      catProvider.getCategoryById(txProvider.filterCategoryId!)?.name ?? '分类',
-                      style: const TextStyle(fontSize: 11),
+            // Category Quick Filter Bar (if filtered)
+            if (txProvider.filterCategoryId != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                color: isDark
+                    ? AppColors.surfaceDark
+                    : AppColors.surfaceMutedLight,
+                child: Row(
+                  children: [
+                    const Text('已筛选分类', style: TextStyle(fontSize: 12)),
+                    const SizedBox(width: 8),
+                    Chip(
+                      label: Text(
+                        catProvider
+                                .getCategoryById(txProvider.filterCategoryId!)
+                                ?.name ??
+                            '分类',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      onDeleted: () => txProvider.setFilterCategory(null),
+                      visualDensity: VisualDensity.compact,
                     ),
-                    onDeleted: () => txProvider.setFilterCategory(null),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-          // Daily Grouped Transaction Records
-          Expanded(
-            child: txProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : sortedGroups.isEmpty
-                    ? (txProvider.searchQuery.isNotEmpty || txProvider.filterCategoryId != null)
+            // Daily Grouped Transaction Records
+            Expanded(
+              child: txProvider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : sortedGroups.isEmpty
+                  ? (txProvider.searchQuery.isNotEmpty ||
+                            txProvider.filterCategoryId != null)
                         ? EmptyState(
                             title: '未找到匹配的记账记录',
                             subtitle: '可以尝试清空搜索关键字或分类筛选',
@@ -566,13 +648,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   _isSearching = false;
                                 });
                               },
-                              icon: const Icon(Icons.clear_all_rounded, size: 18),
+                              icon: const Icon(
+                                Icons.clear_all_rounded,
+                                size: 18,
+                              ),
                               label: const Text('清空筛选条件'),
                             ),
                           )
                         : EmptyState(
                             title: txProvider.isDayMode
-                                ? '${DateFormatHelper.formatDayHeader(txProvider.selectedDay!, showYear: true)} 暂无记账'
+                                ? '${DateFormatHelper.formatDayHeader(txProvider.selectedDay!)} 暂无记账'
                                 : '${DateFormatHelper.formatMonth(txProvider.selectedMonth)} 暂无记账记录',
                             subtitle: '点击下方「记一笔」开启极简记账',
                             icon: Icons.receipt_long_outlined,
@@ -582,51 +667,67 @@ class _HomeScreenState extends State<HomeScreen> {
                               label: const Text('记一笔'),
                             ),
                           )
-                    : ListView.builder(
-                        controller: _listController,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        itemCount: sortedGroups.length,
-                        itemBuilder: (context, dateIndex) {
-                          final group = sortedGroups[dateIndex];
+                  : ListView.builder(
+                      controller: _listController,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                      itemCount: sortedGroups.length,
+                      itemBuilder: (context, dateIndex) {
+                        final group = sortedGroups[dateIndex];
 
-                          return _DayGroupCard(
-                            key: ValueKey(group.date.millisecondsSinceEpoch),
-                            group: group,
-                            isDark: isDark,
-                            catProvider: catProvider,
-                            searchQuery: txProvider.searchQuery,
-                            onTapRecord: (record) => _showTransactionDetails(context, record),
-                            onDeleteRecord: (record) async {
-                              final confirmed = await _showDeleteConfirmDialog(context, record);
-                              if (confirmed == true) {
-                                await txProvider.deleteTransaction(record.id);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Text('已移至回收站 (保留30天)'),
-                                      duration: const Duration(milliseconds: 2500),
-                                      behavior: SnackBarBehavior.floating,
-                                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                                      dismissDirection: DismissDirection.horizontal,
-                                      action: SnackBarAction(
-                                        label: '撤销',
-                                        textColor: AppColors.income,
-                                        onPressed: () {
-                                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                          txProvider.restoreTransaction(record.id);
-                                        },
-                                      ),
+                        return _DayGroupCard(
+                          key: ValueKey(group.date.millisecondsSinceEpoch),
+                          group: group,
+                          isDark: isDark,
+                          catProvider: catProvider,
+                          searchQuery: txProvider.searchQuery,
+                          onTapRecord: (record) =>
+                              _showTransactionDetails(context, record),
+                          onDeleteRecord: (record) async {
+                            final confirmed = await _showDeleteConfirmDialog(
+                              context,
+                              record,
+                            );
+                            if (confirmed == true) {
+                              await txProvider.deleteTransaction(record.id);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('已移至回收站 (保留30天)'),
+                                    duration: const Duration(
+                                      milliseconds: 2500,
                                     ),
-                                  );
-                                }
-                                return true;
+                                    behavior: SnackBarBehavior.floating,
+                                    margin: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      80,
+                                    ),
+                                    dismissDirection:
+                                        DismissDirection.horizontal,
+                                    action: SnackBarAction(
+                                      label: '撤销',
+                                      textColor: AppColors.incomeTextDark,
+                                      onPressed: () {
+                                        ScaffoldMessenger.of(context)
+                                            .hideCurrentSnackBar();
+                                        txProvider.restoreTransaction(
+                                          record.id,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
                               }
-                              return false;
-                            },
-                          );
-                        },
-                      ),
+                              return true;
+                            }
+                            return false;
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -639,242 +740,288 @@ class _HomeScreenState extends State<HomeScreen> {
     final expense = txProvider.currentViewExpense;
     final income = txProvider.currentViewIncome;
     final balance = txProvider.currentViewBalance;
-    final totalCount = txProvider.sortedDailyGroups.fold<int>(0, (sum, g) => sum + g.records.length);
+    final totalCount = txProvider.sortedDailyGroups.fold<int>(
+      0,
+      (sum, g) => sum + g.records.length,
+    );
 
     final balanceColor = balance > 0
         ? AppColors.income
-        : (balance < 0 ? AppColors.expense : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary));
+        : (balance < 0
+              ? AppColors.expense
+              : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary));
 
-    return RepaintBoundary(
-      child: Tooltip(
-        message: '查看本月统计图表',
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => MainNavigationScreen.switchToTab(context, 1),
-            child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark ? AppColors.borderDark : AppColors.borderLight,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.25)
-                  : AppColors.primary.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Row: Header & Period Badge
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: balance >= 0 ? AppColors.income : AppColors.expense,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isDay ? '当日收支结余' : '收支结余',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                      ),
+    final summaryLabel =
+        '${isDay ? '当日' : '本月'}收支结余 ${CurrencyFormat.format(balance)}，'
+        '总支出 ${CurrencyFormat.format(expense)}，'
+        '总收入 ${CurrencyFormat.format(income)}，共 $totalCount 笔';
+
+    return Semantics(
+      button: true,
+      label: summaryLabel,
+      excludeSemantics: true,
+      child: RepaintBoundary(
+        child: Tooltip(
+          message: '查看本月统计图表',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => MainNavigationScreen.switchToTab(context, 1),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.surfaceDark
+                      : AppColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.25)
+                          : AppColors.primary.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    isDay ? '共 $totalCount 笔流水' : '本月 $totalCount 笔',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Row: Header & Period Badge
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: balance >= 0
+                                    ? AppColors.income
+                                    : AppColors.expense,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isDay ? '当日收支结余' : '收支结余',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.surfaceMutedDark
+                                : AppColors.surfaceMutedLight,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            isDay ? '共 $totalCount 笔流水' : '本月 $totalCount 笔',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-            // Hero Balance Amount
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
-              child: Row(
-                key: ValueKey('${isDay}_$balance'),
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '¥',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: balanceColor,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      CurrencyFormat.format(balance, showSymbol: false),
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                        color: balanceColor,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    // Hero Balance Amount
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
+                      child: Row(
+                        key: ValueKey('${isDay}_$balance'),
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '¥',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: balanceColor,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              CurrencyFormat.format(balance, showSymbol: false),
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.5,
+                                color: balanceColor,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 14),
+
+                    // Bottom Two Sub-Cards: Expense & Income
+                    Row(
+                      children: [
+                        // Expense Pill Card
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.expenseBgDark
+                                  : AppColors.expenseBg,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.arrow_outward_rounded,
+                                      size: 14,
+                                      color: AppColors.expense,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isDay ? '当日支出' : '总支出',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark
+                                            ? AppColors.textSecondaryDark
+                                            : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  child: Text(
+                                    CurrencyFormat.format(expense),
+                                    key: ValueKey('${isDay}_$expense'),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.expense,
+                                      fontFeatures: [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Income Pill Card
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.incomeBgDark
+                                  : AppColors.incomeBg,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.arrow_downward_rounded,
+                                      size: 14,
+                                      color: AppColors.income,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isDay ? '当日收入' : '总收入',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark
+                                            ? AppColors.textSecondaryDark
+                                            : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  child: Text(
+                                    CurrencyFormat.format(income),
+                                    key: ValueKey('${isDay}_$income'),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.income,
+                                      fontFeatures: [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-
-            const SizedBox(height: 14),
-
-            // Bottom Two Sub-Cards: Expense & Income
-            Row(
-              children: [
-                // Expense Pill Card
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.expenseBgDark : AppColors.expenseBg,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.arrow_outward_rounded,
-                              size: 14,
-                              color: AppColors.expense,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              isDay ? '当日支出' : '总支出',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: isDark
-                                    ? AppColors.textSecondaryDark
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: Text(
-                            CurrencyFormat.format(expense),
-                            key: ValueKey('${isDay}_$expense'),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.expense,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // Income Pill Card
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.incomeBgDark : AppColors.incomeBg,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.arrow_downward_rounded,
-                              size: 14,
-                              color: AppColors.income,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              isDay ? '当日收入' : '总收入',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: isDark
-                                    ? AppColors.textSecondaryDark
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: Text(
-                            CurrencyFormat.format(income),
-                            key: ValueKey('${isDay}_$income'),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.income,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -920,68 +1067,71 @@ class _DayGroupCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Day Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  DateFormatHelper.formatDayHeader(date),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? AppColors.textSecondaryDark
-                        : AppColors.textSecondary,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormatHelper.formatDayHeader(date),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppColors.textSecondaryDark
+                          : AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                Row(
-                  children: [
-                    if (dayExpense > 0) ...[
-                      Text(
-                        '支 ${CurrencyFormat.formatCompact(dayExpense, showSymbol: false)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: isDark
-                              ? AppColors.textSecondaryDark
-                              : AppColors.textSecondary,
+                  Row(
+                    children: [
+                      if (dayExpense > 0) ...[
+                        Text(
+                          '支 ${CurrencyFormat.format(dayExpense)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                      if (dayIncome > 0) const SizedBox(width: 8),
+                        if (dayIncome > 0) const SizedBox(width: 8),
+                      ],
+                      if (dayIncome > 0)
+                        Text(
+                          '收 ${CurrencyFormat.format(dayIncome)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? AppColors.incomeTextDark
+                                : AppColors.incomeText,
+                          ),
+                        ),
                     ],
-                    if (dayIncome > 0)
-                      Text(
-                        '收 ${CurrencyFormat.formatCompact(dayIncome, showSymbol: false)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.income,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(),
+            const Divider(),
 
-          // List of records for this day
-          ...dayRecords.map((record) {
-            final cat = catProvider.getCategoryById(record.categoryId);
-            return _TransactionRecordTile(
-              key: ValueKey(record.id),
-              record: record,
-              category: cat,
-              isDark: isDark,
-              searchQuery: searchQuery,
-              onTap: () => onTapRecord(record),
-              onDelete: () => onDeleteRecord(record),
-            );
-          }),
-        ],
+            // List of records for this day
+            ...dayRecords.map((record) {
+              final cat = catProvider.getCategoryById(record.categoryId);
+              return _TransactionRecordTile(
+                key: ValueKey(record.id),
+                record: record,
+                category: cat,
+                isDark: isDark,
+                searchQuery: searchQuery,
+                onTap: () => onTapRecord(record),
+                onDelete: () => onDeleteRecord(record),
+              );
+            }),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -1027,7 +1177,11 @@ class _TransactionRecordTile extends StatelessWidget {
             SizedBox(width: 4),
             Text(
               '删除',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -1048,7 +1202,9 @@ class _TransactionRecordTile extends StatelessWidget {
             children: [
               CategoryIconWidget(
                 iconKey: category?.iconKey ?? 'category',
-                color: category?.color ?? (isExpense ? AppColors.expense : AppColors.income),
+                color:
+                    category?.color ??
+                    (isExpense ? AppColors.expense : AppColors.income),
                 size: 38,
                 iconSize: 20,
               ),
@@ -1059,36 +1215,50 @@ class _TransactionRecordTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        _HighlightedText(
-                          text: record.name,
-                          query: searchQuery,
-                          highlightColor: _highlightColor,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.surfaceMutedDark
-                                : AppColors.surfaceMutedLight,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                        Expanded(
                           child: _HighlightedText(
-                            text: record.categoryName,
+                            text: record.name,
                             query: searchQuery,
                             highlightColor: _highlightColor,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isDark
-                                  ? AppColors.textSecondaryDark
-                                  : AppColors.textSecondary,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (record.categoryName.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 72),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.surfaceMutedDark
+                                    : AppColors.surfaceMutedLight,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: _HighlightedText(
+                                text: record.categoryName,
+                                query: searchQuery,
+                                highlightColor: _highlightColor,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDark
+                                      ? AppColors.textSecondaryDark
+                                      : AppColors.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     if (record.remark != null && record.remark!.isNotEmpty) ...[
@@ -1114,7 +1284,8 @@ class _TransactionRecordTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _HighlightedText(
-                    text: '${isExpense ? '-' : '+'}${CurrencyFormat.format(record.amount)}',
+                    text:
+                        '${isExpense ? '-' : '+'}${CurrencyFormat.format(record.amount)}',
                     query: searchQuery,
                     highlightColor: _highlightColor,
                     style: TextStyle(
@@ -1122,8 +1293,12 @@ class _TransactionRecordTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       fontFeatures: const [FontFeature.tabularFigures()],
                       color: isExpense
-                          ? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary)
-                          : AppColors.income,
+                          ? (isDark
+                                ? AppColors.textPrimaryDark
+                                : AppColors.textPrimary)
+                          : (isDark
+                                ? AppColors.incomeTextDark
+                                : AppColors.incomeText),
                     ),
                   ),
                   Text(
@@ -1190,10 +1365,12 @@ class _HighlightedText extends StatelessWidget {
       if (index > cursor) {
         spans.add(TextSpan(text: text.substring(cursor, index)));
       }
-      spans.add(TextSpan(
-        text: text.substring(index, index + normalizedQuery.length),
-        style: TextStyle(color: highlightColor, fontWeight: FontWeight.w700),
-      ));
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + normalizedQuery.length),
+          style: TextStyle(color: highlightColor, fontWeight: FontWeight.w700),
+        ),
+      );
       cursor = index + normalizedQuery.length;
     }
 

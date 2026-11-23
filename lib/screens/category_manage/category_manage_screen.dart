@@ -37,7 +37,9 @@ class _CategoryManageScreenState extends State<CategoryManageScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('恢复默认分类与预设？'),
-        content: const Text('这将重置所有分类与预设名称为初始状态，您自己添加的自定义分类和名称会被重置。已有记账记录不受影响。'),
+        content: const Text(
+          '这将重置所有分类与预设名称为初始状态，您自己添加的自定义分类和名称会被重置。已有记账记录不受影响。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -49,9 +51,8 @@ class _CategoryManageScreenState extends State<CategoryManageScreen>
               Navigator.pop(ctx);
               await provider.resetToDefault();
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已恢复默认分类与预设')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('已恢复默认分类与预设')));
               }
             },
             child: const Text('确认恢复'),
@@ -78,10 +79,16 @@ class _CategoryManageScreenState extends State<CategoryManageScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primary,
+          indicatorColor: Theme.of(context).colorScheme.primary,
           indicatorSize: TabBarIndicatorSize.tab,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 15),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w400,
+            fontSize: 15,
+          ),
           tabs: const [
             Tab(text: '支出分类'),
             Tab(text: '收入分类'),
@@ -107,18 +114,29 @@ class _CategoryManageScreenState extends State<CategoryManageScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'category_manage_add_fab',
-        onPressed: () {
-          final currentType = _tabController.index == 0
-              ? CategoryType.expense
-              : CategoryType.income;
-          EditCategoryDialog.show(context, defaultType: currentType);
-        },
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('添加分类'),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                final currentType = _tabController.index == 0
+                    ? CategoryType.expense
+                    : CategoryType.income;
+                EditCategoryDialog.show(context, defaultType: currentType);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              ),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('添加分类'),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -133,96 +151,156 @@ class _CategoryManageScreenState extends State<CategoryManageScreen>
     if (categories.isEmpty) {
       return EmptyState(
         title: '暂无${type.displayName}分类',
-        subtitle: '点击右下角按钮添加新分类',
+        subtitle: '点击下方按钮添加新分类',
         icon: Icons.category_outlined,
       );
     }
 
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      itemCount: categories.length,
-      onReorderItem: (oldIndex, newIndex) {
-        provider.reorderCategories(type, oldIndex, newIndex);
-      },
-      itemBuilder: (context, index) {
-        final cat = categories[index];
-        final presets = provider.getPresetsForCategory(cat.id);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Icon(
+                Icons.drag_indicator_rounded,
+                size: 14,
+                color: isDark
+                    ? AppColors.textTertiaryDark
+                    : AppColors.textTertiary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '长按分类卡片拖动排序',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark
+                      ? AppColors.textTertiaryDark
+                      : AppColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ReorderableListView.builder(
+            buildDefaultDragHandles: false,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: categories.length,
+            onReorderItem: (oldIndex, newIndex) {
+              provider.reorderCategories(type, oldIndex, newIndex);
+            },
+            itemBuilder: (context, index) {
+              final cat = categories[index];
+              final presets = provider.getPresetsForCategory(cat.id);
 
-        return Container(
-          key: ValueKey(cat.id),
-          margin: const EdgeInsets.only(bottom: 10),
-          child: Material(
-            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: isDark ? AppColors.borderDark : AppColors.borderLight,
-                width: 1,
-              ),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              leading: CategoryIconWidget(
-                iconKey: cat.iconKey,
-                color: cat.color,
-                size: 42,
-                iconSize: 22,
-              ),
-              title: Row(
-                children: [
-                  Text(
-                    cat.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '${presets.length} 个预设',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+              return ReorderableDelayedDragStartListener(
+                key: ValueKey(cat.id),
+                index: index,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Material(
+                    color: isDark
+                        ? AppColors.surfaceDark
+                        : AppColors.surfaceLight,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.borderDark
+                            : AppColors.borderLight,
+                        width: 1,
                       ),
                     ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      leading: CategoryIconWidget(
+                        iconKey: cat.iconKey,
+                        color: cat.color,
+                        size: 42,
+                        iconSize: 22,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              cat.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.surfaceMutedDark
+                                  : AppColors.surfaceMutedLight,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${presets.length} 个预设',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                                color: isDark
+                                    ? AppColors.textSecondaryDark
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        presets.isEmpty
+                            ? '暂无预设名称'
+                            : presets.take(3).map((p) => p.name).join('、') +
+                                  (presets.length > 3 ? '...' : ''),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: isDark
+                            ? AppColors.textTertiaryDark
+                            : AppColors.textTertiary,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                CategoryDetailScreen(category: cat),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ],
-              ),
-              subtitle: Text(
-                presets.isEmpty
-                    ? '暂无预设名称'
-                    : presets.take(3).map((p) => p.name).join('、') + (presets.length > 3 ? '...' : ''),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.drag_handle_rounded, size: 20, color: AppColors.textTertiary),
-                ],
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CategoryDetailScreen(category: cat),
-                  ),
-                );
-              },
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

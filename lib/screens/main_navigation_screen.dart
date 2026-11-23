@@ -28,9 +28,14 @@ class MainNavigationScreen extends StatefulWidget {
   /// Returns the re-select signal notifier of a tab. Incrementing it means the
   /// user tapped the already-active tab again (e.g. scroll current list to top).
   /// Returns null when the screen is displayed outside [MainNavigationScreen].
-  static ValueNotifier<int>? tabReselectSignal(BuildContext context, int index) {
+  static ValueNotifier<int>? tabReselectSignal(
+    BuildContext context,
+    int index,
+  ) {
     final state = context.findAncestorStateOfType<_MainNavigationScreenState>();
-    if (state == null || index < 0 || index >= state._tabReselectSignals.length) {
+    if (state == null ||
+        index < 0 ||
+        index >= state._tabReselectSignals.length) {
       return null;
     }
     return state._tabReselectSignals[index];
@@ -45,8 +50,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Timer? _autoCheckTimer;
 
   /// Per-tab counters bumped when the user taps the already-active tab.
-  final List<ValueNotifier<int>> _tabReselectSignals =
-      List.generate(4, (_) => ValueNotifier(0));
+  final List<ValueNotifier<int>> _tabReselectSignals = List.generate(
+    4,
+    (_) => ValueNotifier(0),
+  );
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -108,37 +115,43 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWide = MediaQuery.sizeOf(context).width >= 1000;
+    if (isWide) {
+      return _buildWideLayout(context, isDark);
+    }
 
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: IndexedStack(
-            index: _currentIndex,
-            children: _screens,
-          ),
+          child: IndexedStack(index: _currentIndex, children: _screens),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'main_add_record_fab',
-        onPressed: () {
-          HapticFeedback.mediumImpact();
-          AddRecordScreen.show(context);
-        },
-        backgroundColor: isDark ? const Color(0xFFF8FAFC) : AppColors.primary,
-        foregroundColor: isDark ? AppColors.primary : Colors.white,
-        elevation: isDark ? 4 : 3,
-        shape: CircleBorder(
-          side: BorderSide(
-            color: isDark ? Colors.white70 : Colors.white24,
-            width: 1.5,
-          ),
-        ),
-        child: const Icon(Icons.add_rounded, size: 30),
-      ),
+      floatingActionButton: _currentIndex == 2
+          ? null
+          : FloatingActionButton(
+              heroTag: 'main_add_record_fab',
+              tooltip: '记一笔',
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                AddRecordScreen.show(context);
+              },
+              backgroundColor: isDark
+                  ? AppColors.primaryOnDark
+                  : AppColors.primary,
+              foregroundColor: isDark ? AppColors.backgroundDark : Colors.white,
+              elevation: isDark ? 4 : 3,
+              shape: CircleBorder(
+                side: BorderSide(
+                  color: isDark ? Colors.white70 : Colors.white24,
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(Icons.add_rounded, size: 30),
+            ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
+        shape: _currentIndex == 2 ? null : const CircularNotchedRectangle(),
         notchMargin: 8,
         color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         elevation: 0,
@@ -152,16 +165,139 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(0, Icons.receipt_long_outlined, Icons.receipt_long_rounded, '明细', isDark),
-                  _buildNavItem(1, Icons.pie_chart_outline_rounded, Icons.pie_chart_rounded, '统计', isDark),
-                  const SizedBox(width: 48), // Space for centered notched FAB
-                  _buildNavItem(2, Icons.category_outlined, Icons.category_rounded, '分类', isDark),
-                  _buildNavItem(3, Icons.settings_outlined, Icons.settings_rounded, '设置', isDark),
+                  _buildNavItem(
+                    0,
+                    Icons.receipt_long_outlined,
+                    Icons.receipt_long_rounded,
+                    '明细',
+                    isDark,
+                  ),
+                  _buildNavItem(
+                    1,
+                    Icons.pie_chart_outline_rounded,
+                    Icons.pie_chart_rounded,
+                    '统计',
+                    isDark,
+                  ),
+                  if (_currentIndex != 2)
+                    const SizedBox(width: 48), // Space for centered notched FAB
+                  _buildNavItem(
+                    2,
+                    Icons.category_outlined,
+                    Icons.category_rounded,
+                    '分类',
+                    isDark,
+                  ),
+                  _buildNavItem(
+                    3,
+                    Icons.settings_outlined,
+                    Icons.settings_rounded,
+                    '设置',
+                    isDark,
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWideLayout(BuildContext context, bool isDark) {
+    final selectedColor = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.primary;
+    final unselectedColor = isDark
+        ? AppColors.textTertiaryDark
+        : AppColors.textTertiary;
+
+    return Scaffold(
+      body: Row(
+        children: [
+          SafeArea(
+            right: false,
+            child: NavigationRail(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: _onTabSelected,
+              labelType: NavigationRailLabelType.all,
+              groupAlignment: -0.55,
+              backgroundColor: isDark
+                  ? AppColors.surfaceDark
+                  : AppColors.surfaceLight,
+              indicatorColor: isDark
+                  ? AppColors.surfaceMutedDark
+                  : AppColors.surfaceMutedLight,
+              selectedIconTheme: IconThemeData(color: selectedColor),
+              unselectedIconTheme: IconThemeData(color: unselectedColor),
+              selectedLabelTextStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selectedColor,
+              ),
+              unselectedLabelTextStyle: TextStyle(
+                fontSize: 12,
+                color: unselectedColor,
+              ),
+              leading: _currentIndex == 2
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 12, bottom: 8),
+                      child: FloatingActionButton(
+                        heroTag: 'main_add_record_fab_rail',
+                        tooltip: '记一笔',
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          AddRecordScreen.show(context);
+                        },
+                        backgroundColor: isDark
+                            ? AppColors.primaryOnDark
+                            : AppColors.primary,
+                        foregroundColor: isDark
+                            ? AppColors.backgroundDark
+                            : Colors.white,
+                        elevation: isDark ? 4 : 3,
+                        child: const Icon(Icons.add_rounded, size: 26),
+                      ),
+                    ),
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long_rounded),
+                  label: Text('明细'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.pie_chart_outline_rounded),
+                  selectedIcon: Icon(Icons.pie_chart_rounded),
+                  label: Text('统计'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.category_outlined),
+                  selectedIcon: Icon(Icons.category_rounded),
+                  label: Text('分类'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings_rounded),
+                  label: Text('设置'),
+                ),
+              ],
+            ),
+          ),
+          VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+          ),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: IndexedStack(index: _currentIndex, children: _screens),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -178,37 +314,43 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ? (isDark ? AppColors.textPrimaryDark : AppColors.primary)
         : (isDark ? AppColors.textTertiaryDark : AppColors.textTertiary);
 
-    return InkWell(
-      onTap: () => _onTabSelected(index),
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: isSelected ? 1.08 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutBack,
-              child: Icon(
-                isSelected ? selectedIcon : unselectedIcon,
-                color: color,
-                size: 22,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => _onTabSelected(index),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedScale(
+                scale: isSelected ? 1.08 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutBack,
+                child: Icon(
+                  isSelected ? selectedIcon : unselectedIcon,
+                  color: color,
+                  size: 22,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: color,
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

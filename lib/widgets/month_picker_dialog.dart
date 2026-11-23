@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 class MonthPickerDialog extends StatefulWidget {
@@ -75,7 +76,9 @@ class _MonthPickerDialogState extends State<MonthPickerDialog> {
               ),
               Text(
                 '$_selectedYear 年',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               IconButton(
                 onPressed: () {
@@ -101,9 +104,11 @@ class _MonthPickerDialogState extends State<MonthPickerDialog> {
             itemCount: 12,
             itemBuilder: (context, index) {
               final month = index + 1;
-              final isSelected = _selectedYear == widget.initialDate.year &&
+              final isSelected =
+                  _selectedYear == widget.initialDate.year &&
                   _selectedMonth == month;
-              final isCurrentMonth = DateTime.now().year == _selectedYear &&
+              final isCurrentMonth =
+                  DateTime.now().year == _selectedYear &&
                   DateTime.now().month == month;
 
               return InkWell(
@@ -114,11 +119,16 @@ class _MonthPickerDialogState extends State<MonthPickerDialog> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.primary
-                        : (isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight),
+                        ? Theme.of(context).colorScheme.primary
+                        : (isDark
+                              ? AppColors.surfaceMutedDark
+                              : AppColors.surfaceMutedLight),
                     borderRadius: BorderRadius.circular(12),
                     border: isCurrentMonth && !isSelected
-                        ? Border.all(color: AppColors.primary, width: 1.5)
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 1.5,
+                          )
                         : null,
                   ),
                   child: Center(
@@ -126,10 +136,14 @@ class _MonthPickerDialogState extends State<MonthPickerDialog> {
                       '$month 月',
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: isSelected
-                            ? Colors.white
-                            : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : (isDark
+                                  ? AppColors.textPrimaryDark
+                                  : AppColors.textPrimary),
                       ),
                     ),
                   ),

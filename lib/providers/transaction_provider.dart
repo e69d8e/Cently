@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path_provider/path_provider.dart';
@@ -95,7 +96,8 @@ class TransactionProvider extends ChangeNotifier {
   double get totalExpense => _totalExpense;
   double get totalIncome => _totalIncome;
   double get netBalance => _netBalance;
-  Map<DateTime, List<TransactionRecord>> get dailyGroupedRecords => _dailyGroupedRecords;
+  Map<DateTime, List<TransactionRecord>> get dailyGroupedRecords =>
+      _dailyGroupedRecords;
   List<DailyTransactionGroup> get sortedDailyGroups => _sortedDailyGroups;
 
   @visibleForTesting
@@ -121,8 +123,10 @@ class TransactionProvider extends ChangeNotifier {
     // Single-pass aggregators for categories and high-frequency item names
     final Map<String, (String name, double amount, int count)> expCatMap = {};
     final Map<String, (String name, double amount, int count)> incCatMap = {};
-    final Map<String, (String catName, double amount, int count)> expItemMap = {};
-    final Map<String, (String catName, double amount, int count)> incItemMap = {};
+    final Map<String, (String catName, double amount, int count)> expItemMap =
+        {};
+    final Map<String, (String catName, double amount, int count)> incItemMap =
+        {};
 
     for (final r in _monthRecords) {
       final isExp = r.type == CategoryType.expense;
@@ -136,13 +140,21 @@ class TransactionProvider extends ChangeNotifier {
         if (existingCat == null) {
           expCatMap[r.categoryId] = (r.categoryName, amount, 1);
         } else {
-          expCatMap[r.categoryId] = (existingCat.$1, existingCat.$2 + amount, existingCat.$3 + 1);
+          expCatMap[r.categoryId] = (
+            existingCat.$1,
+            existingCat.$2 + amount,
+            existingCat.$3 + 1,
+          );
         }
         final existingItem = expItemMap[r.name];
         if (existingItem == null) {
           expItemMap[r.name] = (r.categoryName, amount, 1);
         } else {
-          expItemMap[r.name] = (existingItem.$1, existingItem.$2 + amount, existingItem.$3 + 1);
+          expItemMap[r.name] = (
+            existingItem.$1,
+            existingItem.$2 + amount,
+            existingItem.$3 + 1,
+          );
         }
       } else {
         incSum += amount;
@@ -150,13 +162,21 @@ class TransactionProvider extends ChangeNotifier {
         if (existingCat == null) {
           incCatMap[r.categoryId] = (r.categoryName, amount, 1);
         } else {
-          incCatMap[r.categoryId] = (existingCat.$1, existingCat.$2 + amount, existingCat.$3 + 1);
+          incCatMap[r.categoryId] = (
+            existingCat.$1,
+            existingCat.$2 + amount,
+            existingCat.$3 + 1,
+          );
         }
         final existingItem = incItemMap[r.name];
         if (existingItem == null) {
           incItemMap[r.name] = (r.categoryName, amount, 1);
         } else {
-          incItemMap[r.name] = (existingItem.$1, existingItem.$2 + amount, existingItem.$3 + 1);
+          incItemMap[r.name] = (
+            existingItem.$1,
+            existingItem.$2 + amount,
+            existingItem.$3 + 1,
+          );
         }
       }
 
@@ -174,11 +194,17 @@ class TransactionProvider extends ChangeNotifier {
       if (hasQuery) {
         final nameMatch = r.name.toLowerCase().contains(normalizedQuery);
         final catMatch = r.categoryName.toLowerCase().contains(normalizedQuery);
-        final remarkMatch = r.remark?.toLowerCase().contains(normalizedQuery) ?? false;
+        final remarkMatch =
+            r.remark?.toLowerCase().contains(normalizedQuery) ?? false;
         // 金额匹配：同时覆盖千分位格式 (1,000.50) 与两位小数格式 (1000.50)
-        final compactAmount = CurrencyFormat.formatCompact(r.amount, showSymbol: false);
+        final compactAmount = CurrencyFormat.formatCompact(
+          r.amount,
+          showSymbol: false,
+        );
         final fixedAmount = r.amount.toStringAsFixed(2);
-        final amountMatch = compactAmount.contains(normalizedQuery) || fixedAmount.contains(normalizedQuery);
+        final amountMatch =
+            compactAmount.contains(normalizedQuery) ||
+            fixedAmount.contains(normalizedQuery);
         if (!nameMatch && !catMatch && !remarkMatch && !amountMatch) {
           continue;
         }
@@ -191,7 +217,11 @@ class TransactionProvider extends ChangeNotifier {
         viewInc += amount;
       }
 
-      final dateKey = DateTime(r.dateTime.year, r.dateTime.month, r.dateTime.day);
+      final dateKey = DateTime(
+        r.dateTime.year,
+        r.dateTime.month,
+        r.dateTime.day,
+      );
       dailyMap.putIfAbsent(dateKey, () => []).add(r);
     }
 
@@ -206,12 +236,14 @@ class TransactionProvider extends ChangeNotifier {
       final date = DateTime(r.dateTime.year, r.dateTime.month, r.dateTime.day);
       if (currentGroupDate == null || currentGroupDate != date) {
         if (currentGroupDate != null) {
-          sortedGroups.add(DailyTransactionGroup(
-            date: currentGroupDate,
-            records: currentDayRecords,
-            totalExpense: (currentDayExp * 100).round() / 100,
-            totalIncome: (currentDayInc * 100).round() / 100,
-          ));
+          sortedGroups.add(
+            DailyTransactionGroup(
+              date: currentGroupDate,
+              records: currentDayRecords,
+              totalExpense: (currentDayExp * 100).round() / 100,
+              totalIncome: (currentDayInc * 100).round() / 100,
+            ),
+          );
         }
         currentGroupDate = date;
         currentDayRecords = [r];
@@ -227,12 +259,14 @@ class TransactionProvider extends ChangeNotifier {
       }
     }
     if (currentGroupDate != null) {
-      sortedGroups.add(DailyTransactionGroup(
-        date: currentGroupDate,
-        records: currentDayRecords,
-        totalExpense: (currentDayExp * 100).round() / 100,
-        totalIncome: (currentDayInc * 100).round() / 100,
-      ));
+      sortedGroups.add(
+        DailyTransactionGroup(
+          date: currentGroupDate,
+          records: currentDayRecords,
+          totalExpense: (currentDayExp * 100).round() / 100,
+          totalIncome: (currentDayInc * 100).round() / 100,
+        ),
+      );
     }
     _sortedDailyGroups = sortedGroups;
 
@@ -244,12 +278,21 @@ class TransactionProvider extends ChangeNotifier {
     _filteredRecords = filtered;
     _currentViewExpense = (viewExp * 100).round() / 100;
     _currentViewIncome = (viewInc * 100).round() / 100;
-    _currentViewBalance = ((_currentViewIncome - _currentViewExpense) * 100).round() / 100;
+    _currentViewBalance =
+        ((_currentViewIncome - _currentViewExpense) * 100).round() / 100;
     _dailyGroupedRecords = dailyMap;
 
     // 3. Build Category Stats
-    _expenseCategoryStats = _buildCategoryStatsList(expCatMap, _totalExpense, CategoryType.expense);
-    _incomeCategoryStats = _buildCategoryStatsList(incCatMap, _totalIncome, CategoryType.income);
+    _expenseCategoryStats = _buildCategoryStatsList(
+      expCatMap,
+      _totalExpense,
+      CategoryType.expense,
+    );
+    _incomeCategoryStats = _buildCategoryStatsList(
+      incCatMap,
+      _totalIncome,
+      CategoryType.income,
+    );
     _expenseTopItemStats = _buildTopItemList(expItemMap, CategoryType.expense);
     _incomeTopItemStats = _buildTopItemList(incItemMap, CategoryType.income);
   }
@@ -410,6 +453,33 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 从统计页下钻到分类明细：清空搜索与其他筛选，避免旧状态叠加。
+  void focusCategory(String categoryId) {
+    _searchQuery = '';
+    _selectedDay = null;
+    _filterCategoryId = categoryId;
+    _recomputeDerivedState();
+    notifyListeners();
+  }
+
+  /// 从统计页下钻到项目明细：按名称搜索并清空分类/日期筛选。
+  void focusSearch(String query) {
+    _searchQuery = query;
+    _selectedDay = null;
+    _filterCategoryId = null;
+    _recomputeDerivedState();
+    notifyListeners();
+  }
+
+  /// 清空搜索、分类筛选和单日筛选。
+  void clearAllFilters() {
+    _searchQuery = '';
+    _selectedDay = null;
+    _filterCategoryId = null;
+    _recomputeDerivedState();
+    notifyListeners();
+  }
+
   // ================= CRUD =================
 
   /// 新增一笔账单；返回落库后的完整记录（含生成的唯一 ID），
@@ -431,14 +501,17 @@ class TransactionProvider extends ChangeNotifier {
       categoryName: categoryName,
       name: name.trim().isEmpty ? categoryName : name.trim(),
       dateTime: dateTime,
-      remark: (remark != null && remark.trim().isNotEmpty) ? remark.trim() : null,
+      remark: (remark != null && remark.trim().isNotEmpty)
+          ? remark.trim()
+          : null,
       createdAt: DateTime.now(),
     );
 
     await _db.insertTransaction(record);
 
     // If added record is in currently viewed month, reload
-    if (dateTime.year == _selectedMonth.year && dateTime.month == _selectedMonth.month) {
+    if (dateTime.year == _selectedMonth.year &&
+        dateTime.month == _selectedMonth.month) {
       await loadCurrentMonth();
     } else {
       // Switch view to record's month
@@ -450,7 +523,8 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> updateTransaction(TransactionRecord record) async {
     await _db.updateTransaction(record);
-    if (record.dateTime.year != _selectedMonth.year || record.dateTime.month != _selectedMonth.month) {
+    if (record.dateTime.year != _selectedMonth.year ||
+        record.dateTime.month != _selectedMonth.month) {
       _selectedMonth = DateTime(record.dateTime.year, record.dateTime.month);
     }
     await loadCurrentMonth();
@@ -502,11 +576,15 @@ class TransactionProvider extends ChangeNotifier {
   // ================= STATISTICS =================
 
   List<CategoryStat> getCategoryStats(CategoryType type) {
-    return type == CategoryType.expense ? _expenseCategoryStats : _incomeCategoryStats;
+    return type == CategoryType.expense
+        ? _expenseCategoryStats
+        : _incomeCategoryStats;
   }
 
   List<ItemStat> getTopItemStats(CategoryType type, {int limit = 10}) {
-    final list = type == CategoryType.expense ? _expenseTopItemStats : _incomeTopItemStats;
+    final list = type == CategoryType.expense
+        ? _expenseTopItemStats
+        : _incomeTopItemStats;
     if (list.length > limit) {
       return list.sublist(0, limit);
     }
@@ -537,7 +615,9 @@ class TransactionProvider extends ChangeNotifier {
       'version': '1.0.5',
       'exportTime': DateTime.now().toIso8601String(),
       'exportScope': month == null ? 'all' : 'month',
-      if (month != null) 'targetMonth': '${month.year}-${month.month.toString().padLeft(2, '0')}',
+      if (month != null)
+        'targetMonth':
+            '${month.year}-${month.month.toString().padLeft(2, '0')}',
       'categories': categories.map((c) => c.toMap()).toList(),
       'presetItems': presets.map((p) => p.toMap()).toList(),
       'transactions': records.map((t) => t.toMap()).toList(),
@@ -554,13 +634,17 @@ class TransactionProvider extends ChangeNotifier {
     buffer.writeln('日期时间,收支类型,分类,名称,金额,备注');
 
     for (final r in records) {
-      final dateStr = CurrencyFormat.escapeCsvField(r.dateTime.toIso8601String());
+      final dateStr = CurrencyFormat.escapeCsvField(
+        r.dateTime.toIso8601String(),
+      );
       final typeStr = CurrencyFormat.escapeCsvField(r.type.displayName);
       final catStr = CurrencyFormat.escapeCsvField(r.categoryName);
       final nameStr = CurrencyFormat.escapeCsvField(r.name);
       final amountStr = r.amount.toStringAsFixed(2);
       final remarkStr = CurrencyFormat.escapeCsvField(r.remark ?? '');
-      buffer.writeln('$dateStr,$typeStr,$catStr,$nameStr,$amountStr,$remarkStr');
+      buffer.writeln(
+        '$dateStr,$typeStr,$catStr,$nameStr,$amountStr,$remarkStr',
+      );
     }
 
     return buffer.toString();
@@ -581,7 +665,9 @@ class TransactionProvider extends ChangeNotifier {
         '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}';
     final timePart =
         '${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}${dt.second.toString().padLeft(2, '0')}';
-    final cleanExt = extension.startsWith('.') ? extension.substring(1) : extension;
+    final cleanExt = extension.startsWith('.')
+        ? extension.substring(1)
+        : extension;
     return '${prefix}_${monthSuffix}_${datePart}_$timePart.$cleanExt';
   }
 
@@ -623,7 +709,10 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   /// 调用系统分享面板分享 JSON 备份文件（带精确时间戳后缀）
-  Future<void> shareJsonFile({DateTime? month, Rect? sharePositionOrigin}) async {
+  Future<void> shareJsonFile({
+    DateTime? month,
+    Rect? sharePositionOrigin,
+  }) async {
     final jsonContent = await exportAsJson(month: month);
     final tempDir = await getTemporaryDirectory();
     final fileName = generateExportFileName(
@@ -645,7 +734,10 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   /// 调用系统分享面板分享 CSV 流水文件（带精确时间戳后缀）
-  Future<void> shareCsvFile({DateTime? month, Rect? sharePositionOrigin}) async {
+  Future<void> shareCsvFile({
+    DateTime? month,
+    Rect? sharePositionOrigin,
+  }) async {
     final csvContent = await exportAsCsv(month: month);
     final tempDir = await getTemporaryDirectory();
     final fileName = generateExportFileName(
@@ -668,12 +760,18 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   /// 导出并保存 JSON 备份文件（向下兼容别名）
-  Future<void> exportJsonFile({DateTime? month, Rect? sharePositionOrigin}) async {
+  Future<void> exportJsonFile({
+    DateTime? month,
+    Rect? sharePositionOrigin,
+  }) async {
     await saveJsonFile(month: month);
   }
 
   /// 导出并保存 CSV 文件（向下兼容别名）
-  Future<void> exportCsvFile({DateTime? month, Rect? sharePositionOrigin}) async {
+  Future<void> exportCsvFile({
+    DateTime? month,
+    Rect? sharePositionOrigin,
+  }) async {
     await saveCsvFile(month: month);
   }
 
@@ -719,18 +817,23 @@ class TransactionProvider extends ChangeNotifier {
       String? targetMonth = decoded['targetMonth'] as String?;
 
       // Auto-detect scope and targetMonth if not explicitly marked in metadata
-      if (transactions.isNotEmpty && (exportScope == null || targetMonth == null)) {
+      if (transactions.isNotEmpty &&
+          (exportScope == null || targetMonth == null)) {
         final Set<String> detectedMonths = {};
         for (final item in transactions) {
           if (item is Map) {
             final ts = item['timestamp'];
             if (ts is int) {
               final d = DateTime.fromMillisecondsSinceEpoch(ts);
-              detectedMonths.add('${d.year}-${d.month.toString().padLeft(2, '0')}');
+              detectedMonths.add(
+                '${d.year}-${d.month.toString().padLeft(2, '0')}',
+              );
             } else if (item['dateTime'] is String) {
               final d = DateTime.tryParse(item['dateTime'] as String);
               if (d != null) {
-                detectedMonths.add('${d.year}-${d.month.toString().padLeft(2, '0')}');
+                detectedMonths.add(
+                  '${d.year}-${d.month.toString().padLeft(2, '0')}',
+                );
               }
             }
           }
@@ -766,7 +869,10 @@ class TransactionProvider extends ChangeNotifier {
     }
   }
 
-  Future<ImportSummary> importFromJson(String jsonStr, {bool overwrite = false}) async {
+  Future<ImportSummary> importFromJson(
+    String jsonStr, {
+    bool overwrite = false,
+  }) async {
     final preview = parseBackupPreview(jsonStr);
     if (!preview.isValid || preview.rawData == null) {
       return ImportSummary(
@@ -836,4 +942,3 @@ class BackupPreview {
 
   bool get isSingleMonth => exportScope == 'month' && targetMonth != null;
 }
-

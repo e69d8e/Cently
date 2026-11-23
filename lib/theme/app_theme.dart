@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'app_colors.dart';
 
 class AppTheme {
@@ -11,9 +12,23 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.backgroundLight,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
+        onPrimary: Colors.white,
+        primaryContainer: AppColors.surfaceMutedLight,
+        onPrimaryContainer: AppColors.textPrimary,
+        secondary: AppColors.balance,
+        onSecondary: Colors.white,
+        secondaryContainer: AppColors.balanceBg,
+        onSecondaryContainer: AppColors.balanceBgDark,
         surface: AppColors.surfaceLight,
+        onSurface: AppColors.textPrimary,
+        onSurfaceVariant: AppColors.textSecondary,
         error: AppColors.expense,
+        onError: Colors.white,
+        errorContainer: AppColors.expenseBg,
+        onErrorContainer: AppColors.expenseText,
+        outline: AppColors.borderLight,
         outlineVariant: AppColors.borderLight,
+        surfaceTint: Colors.transparent,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.backgroundLight,
@@ -48,9 +63,7 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surfaceLight,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.borderLight,
@@ -62,7 +75,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         backgroundColor: AppColors.primary,
         contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
-        actionTextColor: AppColors.income,
+        actionTextColor: AppColors.incomeTextDark,
       ),
       tabBarTheme: TabBarThemeData(
         indicatorColor: AppColors.primary,
@@ -71,7 +84,10 @@ class AppTheme {
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.textSecondary,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w400,
+          fontSize: 14,
+        ),
       ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
@@ -124,13 +140,27 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      primaryColor: AppColors.primaryLight,
+      primaryColor: AppColors.primaryOnDark,
       scaffoldBackgroundColor: AppColors.backgroundDark,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.primaryLight,
+        primary: AppColors.primaryOnDark,
+        onPrimary: AppColors.backgroundDark,
+        primaryContainer: AppColors.surfaceMutedDark,
+        onPrimaryContainer: AppColors.textPrimaryDark,
+        secondary: AppColors.balanceTextDark,
+        onSecondary: AppColors.backgroundDark,
+        secondaryContainer: AppColors.balanceBgDark,
+        onSecondaryContainer: AppColors.textPrimaryDark,
         surface: AppColors.surfaceDark,
+        onSurface: AppColors.textPrimaryDark,
+        onSurfaceVariant: AppColors.textSecondaryDark,
         error: AppColors.expense,
+        onError: Colors.white,
+        errorContainer: AppColors.expenseBgDark,
+        onErrorContainer: AppColors.expenseTextDark,
+        outline: AppColors.borderDark,
         outlineVariant: AppColors.borderDark,
+        surfaceTint: Colors.transparent,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.backgroundDark,
@@ -165,9 +195,7 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surfaceDark,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.borderDark,
@@ -179,16 +207,19 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         backgroundColor: AppColors.surfaceMutedDark,
         contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
-        actionTextColor: AppColors.income,
+        actionTextColor: AppColors.incomeTextDark,
       ),
       tabBarTheme: const TabBarThemeData(
-        indicatorColor: AppColors.textPrimaryDark,
+        indicatorColor: AppColors.primaryOnDark,
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
-        labelColor: AppColors.textPrimaryDark,
+        labelColor: AppColors.primaryOnDark,
         unselectedLabelColor: AppColors.textSecondaryDark,
         labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
+        unselectedLabelStyle: TextStyle(
+          fontWeight: FontWeight.w400,
+          fontSize: 14,
+        ),
       ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(

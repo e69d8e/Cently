@@ -13,7 +13,10 @@ class RecordDateTimePickerSheet extends StatefulWidget {
     required this.onConfirmed,
   });
 
-  static Future<DateTime?> show(BuildContext context, DateTime initialDateTime) {
+  static Future<DateTime?> show(
+    BuildContext context,
+    DateTime initialDateTime,
+  ) {
     return showModalBottomSheet<DateTime>(
       context: context,
       isScrollControlled: true,
@@ -26,7 +29,8 @@ class RecordDateTimePickerSheet extends StatefulWidget {
   }
 
   @override
-  State<RecordDateTimePickerSheet> createState() => _RecordDateTimePickerSheetState();
+  State<RecordDateTimePickerSheet> createState() =>
+      _RecordDateTimePickerSheetState();
 }
 
 class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
@@ -53,12 +57,12 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
   }
 
   DateTime get _currentCombinedDateTime => DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        _selectedHour,
-        _selectedMinute,
-      );
+    _selectedDate.year,
+    _selectedDate.month,
+    _selectedDate.day,
+    _selectedHour,
+    _selectedMinute,
+  );
 
   void _setToNow() {
     final now = DateTime.now();
@@ -160,8 +164,12 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
     final firstWeekday = DateTime(_calendarYear, _calendarMonth, 1).weekday;
     final leadingEmptyCount = firstWeekday - 1;
 
-    final timeStr = '${_selectedHour.toString().padLeft(2, '0')}:${_selectedMinute.toString().padLeft(2, '0')}';
-    final dateHeader = DateFormatHelper.formatDayHeader(_selectedDate, showYear: true);
+    final timeStr =
+        '${_selectedHour.toString().padLeft(2, '0')}:${_selectedMinute.toString().padLeft(2, '0')}';
+    final dateHeader = DateFormatHelper.formatDayHeader(
+      _selectedDate,
+      showYear: true,
+    );
 
     return SafeArea(
       child: Container(
@@ -202,18 +210,28 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                     children: [
                       const Text(
                         '设置记账日期与时间',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '$dateHeader $timeStr',
-                        style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                   TextButton.icon(
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: _setToNow,
@@ -228,7 +246,12 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
               // Quick Day Shortcuts
               Row(
                 children: [
-                  _buildQuickDayChip('今天', _selectedDate == today, _setToToday, isDark),
+                  _buildQuickDayChip(
+                    '今天',
+                    _selectedDate == today,
+                    _setToToday,
+                    isDark,
+                  ),
                   const SizedBox(width: 8),
                   _buildQuickDayChip(
                     '昨天',
@@ -252,7 +275,9 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
+                  color: isDark
+                      ? AppColors.surfaceMutedDark
+                      : AppColors.surfaceMutedLight,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -265,7 +290,10 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                     ),
                     Text(
                       '$_calendarYear年 $_calendarMonth月',
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
@@ -316,31 +344,40 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                   }
 
                   final day = index - leadingEmptyCount + 1;
-                  final isSelected = _selectedDate.year == _calendarYear &&
+                  final isSelected =
+                      _selectedDate.year == _calendarYear &&
                       _selectedDate.month == _calendarMonth &&
                       _selectedDate.day == day;
 
-                  final isToday = today.year == _calendarYear &&
+                  final isToday =
+                      today.year == _calendarYear &&
                       today.month == _calendarMonth &&
                       today.day == day;
 
                   return InkWell(
                     onTap: () {
                       setState(() {
-                        _selectedDate = DateTime(_calendarYear, _calendarMonth, day);
+                        _selectedDate = DateTime(
+                          _calendarYear,
+                          _calendarMonth,
+                          day,
+                        );
                       });
                     },
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary
+                            ? Theme.of(context).colorScheme.primary
                             : (isToday
-                                ? (isDark ? Colors.white10 : Colors.black12)
-                                : Colors.transparent),
+                                  ? (isDark ? Colors.white10 : Colors.black12)
+                                  : Colors.transparent),
                         borderRadius: BorderRadius.circular(8),
                         border: isToday && !isSelected
-                            ? Border.all(color: AppColors.primary, width: 1)
+                            ? Border.all(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 1,
+                              )
                             : null,
                       ),
                       child: Center(
@@ -348,10 +385,14 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                           '$day',
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: isSelected || isToday
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                             color: isSelected
                                 ? Colors.white
-                                : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+                                : (isDark
+                                      ? AppColors.textPrimaryDark
+                                      : AppColors.textPrimary),
                           ),
                         ),
                       ),
@@ -364,21 +405,35 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
 
               // Time Setting Section
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight,
+                  color: isDark
+                      ? AppColors.surfaceMutedDark
+                      : AppColors.surfaceMutedLight,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 16,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           '具体时间',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -386,12 +441,19 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                       onTap: _pickExactTime,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                          color: isDark
+                              ? AppColors.surfaceDark
+                              : AppColors.surfaceLight,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                            color: isDark
+                                ? AppColors.borderDark
+                                : AppColors.borderLight,
                           ),
                         ),
                         child: Row(
@@ -405,7 +467,13 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(Icons.edit_rounded, size: 13, color: AppColors.textSecondary),
+                            Icon(
+                              Icons.edit_rounded,
+                              size: 13,
+                              color: isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondary,
+                            ),
                           ],
                         ),
                       ),
@@ -422,11 +490,16 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
                 height: 46,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () => widget.onConfirmed(_currentCombinedDateTime),
-                  child: const Text('确认设置时间', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    '确认设置时间',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             ],
@@ -436,14 +509,19 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
     );
   }
 
-  Widget _buildQuickDayChip(String label, bool isSelected, VoidCallback onTap, bool isDark) {
+  Widget _buildQuickDayChip(
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+    bool isDark,
+  ) {
     return Expanded(
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 6),
           side: BorderSide(
             color: isSelected
-                ? AppColors.primary
+                ? Theme.of(context).colorScheme.primary
                 : (isDark ? AppColors.borderDark : AppColors.borderLight),
             width: isSelected ? 1.5 : 1,
           ),
@@ -455,7 +533,9 @@ class _RecordDateTimePickerSheetState extends State<RecordDateTimePickerSheet> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? AppColors.primary : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
           ),
         ),
       ),

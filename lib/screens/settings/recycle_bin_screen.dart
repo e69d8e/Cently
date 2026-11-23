@@ -17,9 +17,7 @@ class RecycleBinScreen extends StatefulWidget {
   static Future<void> show(BuildContext context) {
     return Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const RecycleBinScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const RecycleBinScreen()),
     );
   }
 
@@ -36,7 +34,10 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
     });
   }
 
-  void _confirmRestoreAll(BuildContext context, TransactionProvider txProvider) {
+  void _confirmRestoreAll(
+    BuildContext context,
+    TransactionProvider txProvider,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -185,7 +186,9 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -197,7 +200,9 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                 children: [
                   CategoryIconWidget(
                     iconKey: cat?.iconKey ?? 'category',
-                    color: cat?.color ?? (isExpense ? AppColors.expense : AppColors.income),
+                    color:
+                        cat?.color ??
+                        (isExpense ? AppColors.expense : AppColors.income),
                     size: 48,
                     iconSize: 26,
                   ),
@@ -218,7 +223,9 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                           '${record.type.displayName} · ${record.categoryName}',
                           style: TextStyle(
                             fontSize: 13,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -230,7 +237,11 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       fontFeatures: const [FontFeature.tabularFigures()],
-                      color: isExpense ? AppColors.expense : AppColors.income,
+                      color: isExpense
+                          ? AppColors.expense
+                          : (isDark
+                                ? AppColors.incomeTextDark
+                                : AppColors.incomeText),
                     ),
                   ),
                 ],
@@ -241,7 +252,10 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
 
               // Retention Tag Banner
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: remaining <= 3
                       ? AppColors.expense.withValues(alpha: 0.1)
@@ -251,9 +265,13 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      remaining <= 3 ? Icons.alarm_rounded : Icons.auto_delete_outlined,
+                      remaining <= 3
+                          ? Icons.alarm_rounded
+                          : Icons.auto_delete_outlined,
                       size: 18,
-                      color: remaining <= 3 ? AppColors.expense : AppColors.income,
+                      color: remaining <= 3
+                          ? AppColors.expense
+                          : AppColors.income,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -264,7 +282,11 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: remaining <= 3 ? AppColors.expense : AppColors.income,
+                          color: remaining <= 3
+                              ? AppColors.expense
+                              : (isDark
+                                    ? AppColors.incomeTextDark
+                                    : AppColors.incomeText),
                         ),
                       ),
                     ),
@@ -323,7 +345,10 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      icon: const Icon(Icons.restore_from_trash_rounded, size: 18),
+                      icon: const Icon(
+                        Icons.restore_from_trash_rounded,
+                        size: 18,
+                      ),
                       label: const Text('找回账单'),
                       onPressed: () async {
                         Navigator.pop(ctx);
@@ -356,7 +381,9 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+            color: isDark
+                ? AppColors.textSecondaryDark
+                : AppColors.textSecondary,
           ),
         ),
         Flexible(
@@ -393,7 +420,10 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
             ),
             IconButton(
               tooltip: '清空回收站',
-              icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.expense),
+              icon: const Icon(
+                Icons.delete_sweep_outlined,
+                color: AppColors.expense,
+              ),
               onPressed: () => _confirmEmptyBin(context, txProvider),
             ),
           ],
@@ -406,32 +436,52 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: SizedBox(
                   height: MediaQuery.of(context).size.height * 0.75,
-                  child: const EmptyState(
+                  child: EmptyState(
                     icon: Icons.delete_outline_rounded,
                     title: '回收站为空',
                     subtitle: '删除的记账记录将在此处保留 30 天\n随时可以找回或彻底删除',
+                    action: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text('返回设置'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                      ),
+                    ),
                   ),
                 ),
               )
             : ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 children: [
                   // Top policy info banner
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: isDark ? AppColors.surfaceDark : AppColors.surfaceMutedLight,
+                      color: isDark
+                          ? AppColors.surfaceDark
+                          : AppColors.surfaceMutedLight,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                        color: isDark
+                            ? AppColors.borderDark
+                            : AppColors.borderLight,
                       ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.info_outline_rounded,
-                          color: AppColors.textSecondary,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondary,
                           size: 20,
                         ),
                         const SizedBox(width: 10),
@@ -440,7 +490,9 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                             '已删除账单在回收站中保留 30 天，超期将自动彻底清理。',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                              color: isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondary,
                               height: 1.4,
                             ),
                           ),
@@ -458,10 +510,14 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                        color: isDark
+                            ? AppColors.surfaceDark
+                            : AppColors.surfaceLight,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                          color: isDark
+                              ? AppColors.borderDark
+                              : AppColors.borderLight,
                           width: 1,
                         ),
                       ),
@@ -469,12 +525,19 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                         onTap: () => _showRecordDetails(context, record, cat),
                         borderRadius: BorderRadius.circular(16),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           child: Row(
                             children: [
                               CategoryIconWidget(
                                 iconKey: cat?.iconKey ?? 'category',
-                                color: cat?.color ?? (isExpense ? AppColors.expense : AppColors.income),
+                                color:
+                                    cat?.color ??
+                                    (isExpense
+                                        ? AppColors.expense
+                                        : AppColors.income),
                                 size: 40,
                                 iconSize: 22,
                               ),
@@ -503,23 +566,33 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: remaining <= 3
-                                                ? AppColors.expense.withValues(alpha: 0.12)
+                                                ? AppColors.expense.withValues(
+                                                    alpha: 0.12,
+                                                  )
                                                 : isDark
-                                                    ? AppColors.surfaceMutedDark
-                                                    : AppColors.surfaceMutedLight,
-                                            borderRadius: BorderRadius.circular(6),
+                                                ? AppColors.surfaceMutedDark
+                                                : AppColors.surfaceMutedLight,
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
                                           ),
                                           child: Text(
-                                            remaining == 0 ? '今日到期' : '剩 $remaining 天',
+                                            remaining == 0
+                                                ? '今日到期'
+                                                : '剩 $remaining 天',
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w600,
-                                              fontFeatures: const [FontFeature.tabularFigures()],
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                               color: remaining <= 3
                                                   ? AppColors.expense
                                                   : (isDark
-                                                      ? AppColors.textSecondaryDark
-                                                      : AppColors.textSecondary),
+                                                        ? AppColors
+                                                              .textSecondaryDark
+                                                        : AppColors
+                                                              .textSecondary),
                                             ),
                                           ),
                                         ),
@@ -535,7 +608,8 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                             : AppColors.textTertiary,
                                       ),
                                     ),
-                                    if (record.remark != null && record.remark!.isNotEmpty) ...[
+                                    if (record.remark != null &&
+                                        record.remark!.isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
                                         record.remark!,
@@ -561,8 +635,12 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
-                                      fontFeatures: const [FontFeature.tabularFigures()],
-                                      color: isExpense ? AppColors.expense : AppColors.income,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                      color: isExpense
+                                          ? AppColors.expense
+                                          : AppColors.income,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -579,18 +657,25 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                         ),
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(
-                                          minWidth: 32,
-                                          minHeight: 32,
+                                          minWidth: 44,
+                                          minHeight: 44,
                                         ),
                                         onPressed: () async {
-                                          await txProvider.restoreTransaction(record.id);
+                                          await txProvider.restoreTransaction(
+                                            record.id,
+                                          );
                                           if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('已找回「${record.name}」'),
-                                                duration: const Duration(milliseconds: 1500),
-                                              ),
-                                            );
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      '已找回「${record.name}」',
+                                                    ),
+                                                    duration: const Duration(
+                                                      milliseconds: 1500,
+                                                    ),
+                                                  ),
+                                                );
                                           }
                                         },
                                       ),
@@ -605,14 +690,15 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
                                         ),
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(
-                                          minWidth: 32,
-                                          minHeight: 32,
+                                          minWidth: 44,
+                                          minHeight: 44,
                                         ),
-                                        onPressed: () => _confirmPermanentlyDelete(
-                                          context,
-                                          txProvider,
-                                          record,
-                                        ),
+                                        onPressed: () =>
+                                            _confirmPermanentlyDelete(
+                                              context,
+                                              txProvider,
+                                              record,
+                                            ),
                                       ),
                                     ],
                                   ),

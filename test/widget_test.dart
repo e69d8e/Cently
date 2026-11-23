@@ -75,7 +75,7 @@ void main() {
     expect(find.byType(AddRecordScreen), findsOneWidget);
     expect(find.text('选择或输入名称'), findsOneWidget);
     expect(find.text('完成'), findsOneWidget);
-    expect(find.text('再记'), findsOneWidget);
+    expect(find.text('再记一笔'), findsOneWidget);
   });
 
   testWidgets('Tapping date in AppBar opens DateOrMonthPickerSheet and can select day or month', (WidgetTester tester) async {
@@ -183,7 +183,7 @@ void main() {
     expect(find.text('1500'), findsOneWidget);
     // In edit mode, "清空" should be present instead of "再记"
     expect(find.text('清空'), findsOneWidget);
-    expect(find.text('再记'), findsNothing);
+    expect(find.text('再记一笔'), findsNothing);
 
     // Test first key replacement: tap '8' should replace 1500 with 8
     await tester.tap(find.text('8'));
