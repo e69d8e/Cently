@@ -76,6 +76,18 @@
 
 ---
 
+> 📦 **v1.0.6 实际发布产物**（仅 Android，2026-11-23）：
+>
+> | 安装包 | 大小 |
+> | :--- | :--- |
+> | `Cently-Android-arm64-v8a-v1.0.6.apk` | 26.51 MB |
+> | `Cently-Android-armeabi-v7a-v1.0.6.apk` | 24.23 MB |
+> | `Cently-Android-Universal-v1.0.6.apk` | 65.43 MB |
+>
+> 与 v1.0.5 起一致，产物文件名带 `v` 前缀版本号；SHA-256 校验指纹可在 Release 页面资产列表中查看。
+
+---
+
 ## [v1.0.5] - 2026-10-02
 
 - **发布页面**：[GitHub Release v1.0.5](https://github.com/e69d8e/Cently/releases/tag/v1.0.5)
