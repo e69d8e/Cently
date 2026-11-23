@@ -2,7 +2,7 @@
 
 ## 项目概况
 - Flutter 个人记账应用：**离线优先、数据全部存本地 SQLite、无任何云端**；UI 全中文（`locale: zh_CN`）。
-- 当前版本 `1.0.5+6`（见 pubspec.yaml），支持 Android / iOS / macOS / Windows / Linux / Web 六端。
+- 当前版本 `1.0.6+7`（见 pubspec.yaml），支持 Android / iOS / macOS / Windows / Linux / Web 六端。
 - 技术栈：Dart SDK ^3.13.0、`provider` 状态管理、`sqflite`（+ `sqflite_common_ffi` / `sqflite_common_ffi_web`）、`fl_chart`、`intl`。`publish_to: none`，私有项目勿发布 pub.dev。
 - 唯一的网络能力是「检查更新」（`lib/services/update_service.dart`）：仅在用户开启自动检查或手动触发时请求 GitHub Releases API（`e69d8e/Cently`），不上传任何数据；自动检查默认关闭、每天最多一次，失败静默降级。除此之外不得新增任何联网行为。
 

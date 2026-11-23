@@ -7,7 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 /// 兜底版本号：仅在 PackageInfo 不可用（如部分 Web 环境）时使用，
 /// 需与 pubspec.yaml 的 version 同步。
-const String kFallbackAppVersion = '1.0.5';
+const String kFallbackAppVersion = '1.0.6';
 
 /// GitHub 仓库的最新 Release API 地址与下载页地址。
 const String kLatestReleaseApiUrl =
@@ -23,7 +23,7 @@ class UpdateInfo {
     this.publishedAt,
   });
 
-  /// 新版本号，如 '1.0.5'（已去除 tag 的 v 前缀）。
+  /// 新版本号，如 '1.0.6'（已去除 tag 的 v 前缀）。
   final String version;
 
   /// Release 页面地址，用于跳转下载。
